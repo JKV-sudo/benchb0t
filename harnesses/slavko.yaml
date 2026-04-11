@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Harness: slavko
+# Model:   llama-3.1-70b (via Ollama or compatible endpoint)
+# Profile: powerful local model, generous resource limits
+# ─────────────────────────────────────────────────────────────────────────────
+
+harness:
+  name: slavko
+  type: custom   # custom | hermes | openclaw | vllm
+
+  endpoint:
+    base_url:    http://localhost:11434/v1
+    api_key_env: SLAVKO_API_KEY   # falls back to BENCHBOT_API_KEY if unset
+
+  model_defaults:
+    model:       llama3.1:70b
+    temperature: 0.1
+    max_tokens:  8192
+
+  container:
+    cpu_limit:    "4"
+    memory_limit: 8g
+    max_parallel: 1   # run one level at a time to avoid OOM

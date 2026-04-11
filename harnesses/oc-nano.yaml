@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Harness: oc-nano
+# Model:   openclaw-nano (hypothetical tiny model for stress / regression tests)
+# Profile: minimal resources, used to establish lower baseline scores
+# ─────────────────────────────────────────────────────────────────────────────
+
+harness:
+  name: oc-nano
+  type: openclaw
+
+  endpoint:
+    base_url:    http://localhost:8000/v1
+    api_key_env: OC_NANO_API_KEY   # falls back to BENCHBOT_API_KEY if unset
+
+  model_defaults:
+    model:       openclaw-nano
+    temperature: 0.3
+    max_tokens:  2048
+
+  container:
+    cpu_limit:    "1"
+    memory_limit: 2g
+    max_parallel: 4   # tiny model — run many in parallel

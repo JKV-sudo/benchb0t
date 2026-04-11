@@ -1,0 +1,98 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 2 — Multi-Step Data Pipeline
+# Difficulty: ★★★☆☆  (intermediate)
+# The agent must discover files, process them, aggregate results, and report.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l2-multi-step
+  name:       "Multi-Step Data Pipeline"
+  difficulty: 3
+  category:   data-processing
+  tags:       [intermediate, pipeline, aggregation, json]
+
+container:
+  image:       python:3.11-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  volumes: []
+  packages:
+    pip: [jq]    # agent may use jq for quick JSON inspection via bash
+    apt: [jq]
+  setup_script: |
+    mkdir -p /workspace/data &&
+    echo '{"user":"alice","score":85}' > /workspace/data/alice.json &&
+    echo '{"user":"bob","score":72}' > /workspace/data/bob.json &&
+    echo '{"user":"carol","score":91}' > /workspace/data/carol.json &&
+    echo '{"user":"dave","score":60}' > /workspace/data/dave.json
+
+task:
+  instruction: |
+    Inside /workspace/data/ there are several JSON files, one per user.
+    Each file has the schema: {"user": "<name>", "score": <number>}
+
+    Your task:
+    1. Read ALL JSON files in /workspace/data/
+    2. Calculate the average score across all users
+    3. Identify the user with the highest score
+    4. Write a summary to /workspace/report.json with the following schema:
+       {
+         "total_users": <int>,
+         "average_score": <float rounded to 2 decimal places>,
+         "top_user": "<name>",
+         "top_score": <int>
+       }
+  context: null
+  max_turns:  15
+  timeout_s:  90
+
+modes:
+  guided:
+    system_prompt: |
+      You are a precise Python data-processing agent in a Docker sandbox.
+      APPROACH:
+      1. bash: ls /workspace/data/  — discover input files
+      2. read_file each CSV/JSON file to understand the schema
+      3. Write a Python script to /workspace/process.py that aggregates all data
+      4. bash: python3 /workspace/process.py
+      5. read_file /workspace/report.json — verify output structure
+      Prefer writing one clean Python script over multiple bash one-liners.
+      When done, state the key numbers from the report.
+  unguided:
+    system_prompt: |
+      You are a capable Python data agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - read_file
+  - write_file
+
+evaluation:
+  type:              script
+  efficiency_target: 7   # ls + 4×read + compute + write
+  criteria:
+    - id:          report_exists
+      description: "/workspace/report.json must exist"
+      type:        script
+      check:       "test -f /workspace/report.json"
+      weight:      1.0
+
+    - id:          total_users_correct
+      description: "total_users must be 4"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/report.json')); assert d['total_users']==4\""
+      weight:      2.0
+
+    - id:          average_correct
+      description: "average_score must be 77.0"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/report.json')); assert d['average_score']==77.0\""
+      weight:      2.0
+
+    - id:          top_user_correct
+      description: "top_user must be 'carol' with score 91"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/report.json')); assert d['top_user']=='carol' and d['top_score']==91\""
+      weight:      3.0

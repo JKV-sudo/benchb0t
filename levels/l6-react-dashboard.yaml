@@ -1,0 +1,243 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 6 — Analytics Dashboard
+# Difficulty: ★★★★☆  (React / Vite / data visualisation)
+#
+# Agent must build a polished React analytics dashboard with KPI cards,
+# a line chart (canvas/SVG, no external chart lib), and a data table.
+# Scaffold + deps are pre-installed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l6-react-dashboard
+  name:       "Analytics Dashboard"
+  difficulty: 4
+  category:   webapp
+  tags:       [react, vite, dashboard, charts, data-viz, ui]
+
+container:
+  image:       node:20-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  packages:
+    apt: [curl]
+    pip: []
+    npm: []
+  setup_script: |
+    set -e
+    mkdir -p /workspace/dashboard/src /workspace/dashboard/public
+
+    cat > /workspace/dashboard/package.json << 'PKGJSON'
+    {
+      "name": "analytics-dashboard",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": { "dev": "vite", "build": "vite build" },
+      "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+      },
+      "devDependencies": {
+        "@vitejs/plugin-react": "^4.2.0",
+        "vite": "^5.0.0"
+      }
+    }
+    PKGJSON
+
+    cat > /workspace/dashboard/vite.config.js << 'VITECFG'
+    import { defineConfig } from 'vite'
+    import react from '@vitejs/plugin-react'
+    export default defineConfig({
+      plugins: [react()],
+      server: { host: '0.0.0.0', port: 3000 }
+    })
+    VITECFG
+
+    cat > /workspace/dashboard/index.html << 'IDXHTML'
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Analytics Dashboard</title>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+      </body>
+    </html>
+    IDXHTML
+
+    cat > /workspace/dashboard/src/main.jsx << 'MAINJSX'
+    import React from 'react'
+    import ReactDOM from 'react-dom/client'
+    import App from './App.jsx'
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode><App /></React.StrictMode>
+    )
+    MAINJSX
+
+    # Placeholder App — agent replaces this
+    cat > /workspace/dashboard/src/App.jsx << 'APPJSX'
+    export default function App() {
+      return <div style={{padding:'2rem'}}>Dashboard scaffold ready</div>
+    }
+    APPJSX
+
+    # Mock data file the agent should import
+    cat > /workspace/dashboard/src/data.js << 'DATAJS'
+    export const kpis = [
+      { label: "Total Revenue",   value: "$128,450", change: "+12.4%", up: true  },
+      { label: "Active Users",    value: "8,312",    change: "+5.2%",  up: true  },
+      { label: "Orders Today",    value: "342",      change: "-3.1%",  up: false },
+      { label: "Avg Order Value", value: "$375.80",  change: "+8.9%",  up: true  },
+    ]
+
+    export const revenueTimeline = [
+      { month: "Jan", revenue: 18200 },
+      { month: "Feb", revenue: 21400 },
+      { month: "Mar", revenue: 19800 },
+      { month: "Apr", revenue: 24600 },
+      { month: "May", revenue: 28100 },
+      { month: "Jun", revenue: 26300 },
+      { month: "Jul", revenue: 31500 },
+      { month: "Aug", revenue: 29800 },
+    ]
+
+    export const topProducts = [
+      { name: "Gadget Pro X",   sales: 1240, revenue: "$62,000" },
+      { name: "Widget Alpha",   sales:  980, revenue: "$48,020" },
+      { name: "SuperWidget 2",  sales:  760, revenue: "$37,240" },
+      { name: "Notebook Ultra", sales:  540, revenue: "$16,200" },
+      { name: "Pen Set Pro",    sales:  420, revenue: "$5,040"  },
+    ]
+    DATAJS
+
+    cd /workspace/dashboard && npm install
+
+preview:
+  port: 3000
+  path: "/"
+
+task:
+  instruction: |
+    A React + Vite project is scaffolded at /workspace/dashboard/.
+    Dependencies are installed. Mock data is already in src/data.js.
+    DO NOT run npm install again.
+
+    ── WHAT TO BUILD ──────────────────────────────────────────────────────────
+    Replace /workspace/dashboard/src/App.jsx with a stunning, pixel-styled
+    analytics dashboard. You may add files under src/ freely.
+
+    The dashboard MUST include:
+
+    1. HEADER — app name ("benchb0t Analytics"), dark background, pixel/retro font feel
+
+    2. KPI CARDS — 4 cards in a grid using the `kpis` array from data.js.
+       Each card shows: label, value, and change % with green (up) / red (down) colour.
+
+    3. REVENUE CHART — a line chart drawn with SVG (no canvas, no external libs).
+       Plot `revenueTimeline` data (month on x-axis, revenue on y-axis).
+       Must have axis labels and a title "Monthly Revenue".
+
+    4. TOP PRODUCTS TABLE — a styled HTML table from `topProducts` with columns:
+       Rank, Product, Sales, Revenue. Alternating row colours.
+
+    5. FOOTER — "Powered by benchb0t" with current year
+
+    Design rules:
+    • Dark theme: background #0d0d0d or similar, accent colour amber/gold (#f5a623)
+    • All styles inline or in a <style> tag at the top of App.jsx
+    • No external CSS files, no CDN imports
+    • Responsive: works at 1024px+ width
+
+    ── HOW TO START ───────────────────────────────────────────────────────────
+    Use run_background:
+      command: "cd /workspace/dashboard && npm run dev"
+      wait_seconds: 5
+
+    Then verify: curl -sf http://localhost:3000/
+
+    DO NOT change vite.config.js.
+  context: null
+  max_turns:  20
+  timeout_s:  240
+
+modes:
+  guided:
+    system_prompt: |
+      You are a step-by-step React frontend engineer agent in a Docker sandbox.
+      Vite + React are pre-installed. Do NOT run npm install.
+
+      APPROACH FOR THIS LEVEL:
+      1. list_dir /workspace/dashboard/src  — see scaffold files
+      2. read_file /workspace/dashboard/src/data.js  — understand the data shape
+      3. write_file /workspace/dashboard/src/App.jsx  — full dashboard implementation
+      4. run_background  command="cd /workspace/dashboard && npm run dev"  wait_seconds=6
+      5. bash: curl -sf http://localhost:3000/  — verify server is up
+
+      HINTS FOR THE SVG CHART:
+      • Normalise revenue to SVG height: y = height - (val / maxVal) * height
+      • Use <polyline points="x1,y1 x2,y2 ..." fill="none" stroke="#f5a623" strokeWidth="2"/>
+      • Wrap in <svg viewBox="0 0 600 200" style={{width:'100%',height:'200px'}}>
+      • Add <text> elements for axis labels
+
+      HINTS FOR STYLE:
+      • Root container: style={{background:'#0d0d0d',color:'#e0e0e0',minHeight:'100vh',fontFamily:'monospace'}}
+      • Accent colour: #f5a623 (amber/gold)
+      • Card style: background:#1a1a1a, border:'1px solid #333', borderRadius:4
+
+      When done, confirm the server URL and which components you built.
+  unguided:
+    system_prompt: |
+      You are a capable React frontend engineer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - list_dir
+  - run_background
+  - patch_file
+
+evaluation:
+  type:              script
+  efficiency_target: 10
+  criteria:
+    - id:          server_responds
+      description: "Vite dev server responds on port 3000"
+      type:        script
+      check:       "curl -sf http://localhost:3000/ > /dev/null"
+      weight:      3.0
+
+    - id:          has_kpi_data
+      description: "App.jsx imports and uses kpi data"
+      type:        script
+      check:       "grep -q 'kpis\\|data.js\\|Total Revenue' /workspace/dashboard/src/App.jsx"
+      weight:      1.5
+
+    - id:          has_svg_chart
+      description: "App.jsx contains SVG chart elements"
+      type:        script
+      check:       "grep -qiE '<svg|<polyline|<path|<line|<rect' /workspace/dashboard/src/App.jsx"
+      weight:      2.0
+
+    - id:          has_table
+      description: "App.jsx contains a products table"
+      type:        script
+      check:       "grep -qiE '<table|<tr|<td|<th' /workspace/dashboard/src/App.jsx"
+      weight:      1.5
+
+    - id:          dark_theme
+      description: "App uses dark background styling"
+      type:        script
+      check:       "grep -qiE '#0[0-9a-f]{5}|#1[0-9a-f]{5}|background.*#[0-2]' /workspace/dashboard/src/App.jsx"
+      weight:      1.0
+
+    - id:          component_structure
+      description: "Dashboard has 3+ named components"
+      type:        script
+      check:       >
+        [ $(grep -cE 'function [A-Z][a-zA-Z]+|const [A-Z][a-zA-Z]+ = ' /workspace/dashboard/src/App.jsx) -ge 3 ]
+      weight:      1.0

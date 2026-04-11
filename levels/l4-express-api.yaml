@@ -1,0 +1,184 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 4 — Library REST API
+# Difficulty: ★★★☆☆  (backend / Node.js / Express)
+#
+# Agent must build a CRUD REST API for a book library using Express.js.
+# A seed data file and package.json are pre-installed; the agent only
+# needs to write server.js and start the process.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l4-express-api
+  name:       "Library REST API"
+  difficulty: 3
+  category:   backend
+  tags:       [node, express, rest, api, crud, json]
+
+container:
+  image:       node:20-slim
+  working_dir: /workspace
+  env:
+    PORT: "3001"
+    NODE_ENV: development
+  packages:
+    apt: [curl]
+    pip: []
+    npm: []
+  setup_script: |
+    set -e
+    mkdir -p /workspace/library-api
+    cd /workspace/library-api
+
+    cat > package.json << 'PKGJSON'
+    {
+      "name": "library-api",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": { "start": "node server.js" },
+      "dependencies": { "express": "^4.18.2" }
+    }
+    PKGJSON
+
+    cat > books.json << 'SEED'
+    [
+      {"id": 1, "title": "Dune",        "author": "Frank Herbert",    "year": 1965, "genre": "sci-fi"},
+      {"id": 2, "title": "Neuromancer", "author": "William Gibson",   "year": 1984, "genre": "cyberpunk"},
+      {"id": 3, "title": "Snow Crash",  "author": "Neal Stephenson",  "year": 1992, "genre": "cyberpunk"},
+      {"id": 4, "title": "Foundation",  "author": "Isaac Asimov",     "year": 1951, "genre": "sci-fi"}
+    ]
+    SEED
+
+    npm install
+
+preview:
+  port: 3001
+  path: "/books"
+
+task:
+  instruction: |
+    A Node.js project has been scaffolded at /workspace/library-api/.
+    Express is already installed. A seed file books.json exists with 4 books.
+
+    ── WHAT TO BUILD ──────────────────────────────────────────────────────────
+    Write /workspace/library-api/server.js — a complete Express REST API
+    that serves the book catalog on port 3001.
+
+    Required endpoints:
+      GET    /books          → return all books as JSON array
+      GET    /books/:id      → return single book (404 if not found)
+      POST   /books          → add a new book (body: {title, author, year, genre})
+                               auto-assign an id, return the new book
+      PUT    /books/:id      → update a book (404 if not found), return updated book
+      DELETE /books/:id      → delete a book (404 if not found), return {deleted: true}
+      GET    /books/search?q=<term> → search title + author (case-insensitive)
+
+    ── DATA STORE ─────────────────────────────────────────────────────────────
+    Load books.json on startup as your in-memory store.
+    No database needed — keep state in a JS array.
+
+    ── HOW TO START ───────────────────────────────────────────────────────────
+    Use the run_background tool to start the server:
+      command: "cd /workspace/library-api && node server.js"
+      wait_seconds: 3
+
+    Then verify with: curl -sf http://localhost:3001/books
+
+    ── RULES ──────────────────────────────────────────────────────────────────
+    • Use ESM (import/export) — package.json already sets "type": "module"
+    • Parse JSON bodies (use express.json() middleware)
+    • Return proper HTTP status codes (200, 201, 404)
+    • CORS: allow all origins (res.header("Access-Control-Allow-Origin", "*"))
+  context: null
+  max_turns:  12
+  timeout_s:  120
+
+modes:
+  guided:
+    system_prompt: |
+      You are a step-by-step Node.js backend engineer agent in a Docker sandbox.
+
+      APPROACH FOR THIS LEVEL:
+      1. list_dir /workspace/library-api   — see what's already there (package.json, books.json)
+      2. read_file /workspace/library-api/package.json  — confirm ESM is set up
+      3. write_file /workspace/library-api/server.js    — write the complete Express API
+      4. run_background  command="cd /workspace/library-api && node server.js"  wait_seconds=3
+      5. Verify each endpoint with http_request or bash curl before declaring done
+
+      HINTS:
+      • package.json already has "type":"module" — use ESM imports (import express from 'express')
+      • Load books.json on startup: readFileSync + JSON.parse, keep in a let books = [...] array
+      • Auto-increment id: Math.max(...books.map(b=>b.id), 0) + 1
+      • Search: filter by title.toLowerCase().includes(q) || author.toLowerCase().includes(q)
+      • Set res.header("Access-Control-Allow-Origin","*") for CORS
+
+      When done, summarise which endpoints passed verification.
+  unguided:
+    system_prompt: |
+      You are a capable Node.js backend engineer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - list_dir
+  - run_background
+
+evaluation:
+  type:              script
+  efficiency_target: 6
+  criteria:
+    - id:          server_responds
+      description: "Server responds on port 3001"
+      type:        script
+      check:       "curl -sf http://localhost:3001/books > /dev/null"
+      weight:      2.0
+
+    - id:          get_all_books
+      description: "GET /books returns all 4 seed books"
+      type:        script
+      check:       >
+        curl -sf http://localhost:3001/books |
+        python3 -c "import sys,json; b=json.load(sys.stdin); assert len(b)>=4, f'got {len(b)} books'"
+      weight:      2.0
+
+    - id:          get_by_id
+      description: "GET /books/1 returns Dune"
+      type:        script
+      check:       >
+        curl -sf http://localhost:3001/books/1 |
+        python3 -c "import sys,json; b=json.load(sys.stdin); assert b['id']==1"
+      weight:      1.5
+
+    - id:          post_book
+      description: "POST /books creates a new book with auto-id"
+      type:        script
+      check:       >
+        curl -sf -X POST -H 'Content-Type: application/json'
+        -d '{"title":"Test Book","author":"Tester","year":2024,"genre":"test"}'
+        http://localhost:3001/books |
+        python3 -c "import sys,json; b=json.load(sys.stdin); assert 'id' in b and b['title']=='Test Book'"
+      weight:      2.0
+
+    - id:          delete_book
+      description: "DELETE /books/4 removes the book"
+      type:        script
+      check:       >
+        curl -sf -X DELETE http://localhost:3001/books/4 &&
+        curl -sf http://localhost:3001/books |
+        python3 -c "import sys,json; books=json.load(sys.stdin); assert not any(b['id']==4 for b in books)"
+      weight:      1.5
+
+    - id:          search_endpoint
+      description: "GET /books/search?q=dune returns Dune"
+      type:        script
+      check:       >
+        curl -sf "http://localhost:3001/books/search?q=dune" |
+        python3 -c "import sys,json; r=json.load(sys.stdin); assert any('Dune' in b.get('title','') for b in r)"
+      weight:      1.0
+
+    - id:          not_found_404
+      description: "GET /books/9999 returns 404"
+      type:        script
+      check:       "[ $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/books/9999) = '404' ]"
+      weight:      1.0

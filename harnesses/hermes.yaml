@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Harness: hermes
+# Model:   hermes-3-llama-3.1-8b (NousResearch)
+# Profile: lightweight model, good instruction-following, fast iterations
+# ─────────────────────────────────────────────────────────────────────────────
+
+harness:
+  name: hermes
+  type: hermes
+
+  endpoint:
+    base_url:    http://localhost:11434/v1
+    api_key_env: HERMES_API_KEY   # falls back to BENCHBOT_API_KEY if unset
+
+  model_defaults:
+    model:       hermes-3-llama3.1:8b
+    temperature: 0.2
+    max_tokens:  4096
+
+  container:
+    cpu_limit:    "2"
+    memory_limit: 4g
+    max_parallel: 2   # 8b model is small enough to run 2 levels in parallel

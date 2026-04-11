@@ -1,0 +1,123 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 3 — API Integration
+# Difficulty: ★★★★☆  (advanced)
+# The agent must call a live HTTP API, parse the response, handle edge cases,
+# and persist structured results — all within tight turn and time budgets.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l3-api-call
+  name:       "API Integration Challenge"
+  difficulty: 4
+  category:   api-integration
+  tags:       [advanced, http, json, error-handling, parsing]
+
+container:
+  image:       python:3.11-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+    # Public, no-auth API — safe to call in sandbox
+    TARGET_API: "https://jsonplaceholder.typicode.com"
+  volumes: []
+  packages:
+    apt: [curl, jq]
+    pip: [requests]   # agent can also write raw curl — both work
+  setup_script: |
+    mkdir -p /workspace
+
+task:
+  instruction: |
+    You have access to a public REST API at the URL stored in the environment
+    variable TARGET_API (https://jsonplaceholder.typicode.com).
+
+    Complete these steps:
+    1. Fetch the list of users from GET /users
+    2. For each user, fetch their todos from GET /todos?userId=<id>
+    3. Count how many todos are completed vs incomplete per user
+    4. Find the user with the highest completion rate (completed / total)
+    5. Write /workspace/result.json with the schema:
+       {
+         "top_user_id":    <int>,
+         "top_user_name":  "<name>",
+         "completion_rate": <float rounded to 4 decimal places>,
+         "users_analysed":  <int>
+       }
+
+    Handle HTTP errors gracefully — if a request fails, log a warning and skip
+    that user rather than crashing.
+  context: |
+    The API is jsonplaceholder.typicode.com — a free, public test API.
+    There are 10 users (IDs 1–10) and each has ~20 todos.
+    You may use bash with curl, or write a short Python script.
+  max_turns:  20
+  timeout_s:  120
+
+modes:
+  guided:
+    system_prompt: |
+      You are a precise API integration agent in a Docker sandbox.
+      APPROACH:
+      1. http_request GET the API endpoint — inspect the response schema
+      2. Handle pagination or multiple requests if needed
+      3. Write a Python script to /workspace/process.py to parse + aggregate
+      4. bash: python3 /workspace/process.py
+      5. read_file the output file — verify all required fields are present
+      HINTS:
+      • Use http_request for all HTTP calls (curl is also available via bash)
+      • Parse JSON: import json; data = json.loads(response)
+      • Always check for error fields in the response before assuming success
+      • Write output as pretty-printed JSON: json.dumps(result, indent=2)
+      When done, summarise key metrics from the output file.
+  unguided:
+    system_prompt: |
+      You are a capable API integration agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - read_file
+  - write_file
+  - http_request
+
+evaluation:
+  type:              script
+  efficiency_target: 12   # ~12 calls: 1 list + 10 todo fetches + 1 write
+  criteria:
+    - id:          result_exists
+      description: "/workspace/result.json must exist and be valid JSON"
+      type:        script
+      check:       "python3 -c \"import json; json.load(open('/workspace/result.json'))\""
+      weight:      1.0
+
+    - id:          schema_correct
+      description: "result.json must have all required keys"
+      type:        script
+      check: |
+        python3 -c "
+        import json
+        d = json.load(open('/workspace/result.json'))
+        assert 'top_user_id' in d
+        assert 'top_user_name' in d
+        assert 'completion_rate' in d
+        assert 'users_analysed' in d
+        "
+      weight:      2.0
+
+    - id:          users_analysed
+      description: "At least 8 of 10 users must have been analysed"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/result.json')); assert d['users_analysed']>=8\""
+      weight:      2.0
+
+    - id:          completion_rate_valid
+      description: "completion_rate must be between 0 and 1"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/result.json')); assert 0<=d['completion_rate']<=1\""
+      weight:      1.0
+
+    - id:          top_user_id_valid
+      description: "top_user_id must be an integer between 1 and 10"
+      type:        script
+      check:       "python3 -c \"import json; d=json.load(open('/workspace/result.json')); assert 1<=int(d['top_user_id'])<=10\""
+      weight:      2.0

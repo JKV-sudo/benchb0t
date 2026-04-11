@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────────────
+# Smoke Test — verifies the full pipeline end-to-end in ~5s
+# Difficulty: ★
+# ──────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l99-test
+  name:       "Smoke Test"
+  difficulty: 1
+  category:   general
+  tags:       [smoke, debug, fast]
+
+container:
+  image:       python:3.11-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  volumes: []
+  packages:
+    apt: []
+    pip: []
+    npm: []
+  setup_script: |
+    mkdir -p /workspace
+    printf "ping" > /workspace/input.txt
+
+task:
+  instruction: |
+    Read the file /workspace/input.txt and write its contents (as-is) to /workspace/output.txt.
+    That is all.
+  context: null
+  max_turns:  5
+  timeout_s:  30
+
+tools:
+  - bash
+
+evaluation:
+  type:              script
+  efficiency_target: 2
+  criteria:
+    - id:          output_exists
+      description: "output.txt exists"
+      type:        script
+      check:       "test -f /workspace/output.txt"
+      weight:      1.0
+    - id:          output_correct
+      description: "output.txt contains 'ping'"
+      type:        script
+      check:       "grep -q 'ping' /workspace/output.txt"
+      weight:      2.0

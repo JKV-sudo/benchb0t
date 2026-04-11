@@ -1,0 +1,15 @@
+# credentials — never commit
+.benchb0t_creds.json
+.env
+
+# runtime output
+runs/
+__pycache__/
+*.pyc
+*.agentlog
+*.agentlog.gz
+
+# Python
+.venv/
+*.egg-info/
+dist/

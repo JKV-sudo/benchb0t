@@ -1,0 +1,36 @@
+# benchb0t — framework-wide defaults
+# All sensitive values must be set via environment variables (see .env.example)
+
+framework:
+  version: "0.1.0"
+  name: benchb0t
+  log_level: INFO           # DEBUG | INFO | WARNING | ERROR
+  runs_dir: runs            # relative to project root
+  max_parallel_levels: 1    # increase for parallel level execution
+
+scoring:
+  weights:
+    completion:      0.40
+    efficiency:      0.25
+    self_correction: 0.20
+    path_quality:    0.15
+  penalties:
+    extra_tool_call: -0.5   # per call beyond efficiency_target
+    backtrack:       -1.0   # per detected backtrack step
+    timeout:         -5.0   # flat penalty on timeout
+
+container:
+  default_cpu_limit:    "2"     # Docker CPU quota (e.g. "2" = 2 cores)
+  default_memory_limit: "4g"
+  pull_policy: if_not_present   # always | if_not_present | never
+  network_mode: bridge
+
+agent:
+  default_max_turns:  20
+  default_timeout_s:  120
+  default_temperature: 0.2
+  default_max_tokens: 4096
+
+recorder:
+  format: agentlog      # only supported format for now
+  compress: false       # gzip .agentlog files when true

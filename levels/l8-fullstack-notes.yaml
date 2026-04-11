@@ -1,0 +1,291 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 8 — Full Stack Notes App
+# Difficulty: ★★★★★  (full stack / Express backend + React frontend)
+#
+# The hardest level. Agent must build a complete full-stack app:
+#   • Express REST API backend  (port 3001)
+#   • React + Vite frontend     (port 3000, Vite proxies /api → 3001)
+#   • Frontend calls real API — no mock data
+# Both parts must be running simultaneously.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l8-fullstack-notes
+  name:       "Full Stack Notes App"
+  difficulty: 5
+  category:   fullstack
+  tags:       [react, vite, express, fullstack, rest, proxy, node]
+
+container:
+  image:       node:20-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  packages:
+    apt: [curl]
+    pip: []
+    npm: []
+  setup_script: |
+    set -e
+
+    # ── Backend scaffold ─────────────────────────────────────────────────────
+    mkdir -p /workspace/backend
+
+    cat > /workspace/backend/package.json << 'BPKG'
+    {
+      "name": "notes-backend",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": { "start": "node server.js" },
+      "dependencies": { "express": "^4.18.2", "cors": "^2.8.5" }
+    }
+    BPKG
+
+    cd /workspace/backend && npm install
+
+    # ── Frontend scaffold ────────────────────────────────────────────────────
+    mkdir -p /workspace/frontend/src
+
+    cat > /workspace/frontend/package.json << 'FPKG'
+    {
+      "name": "notes-frontend",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": { "dev": "vite", "build": "vite build" },
+      "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+      },
+      "devDependencies": {
+        "@vitejs/plugin-react": "^4.2.0",
+        "vite": "^5.0.0"
+      }
+    }
+    FPKG
+
+    cat > /workspace/frontend/index.html << 'IDXHTML'
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Notes App</title>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+      </body>
+    </html>
+    IDXHTML
+
+    cat > /workspace/frontend/src/main.jsx << 'MAINJSX'
+    import React from 'react'
+    import ReactDOM from 'react-dom/client'
+    import App from './App.jsx'
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode><App /></React.StrictMode>
+    )
+    MAINJSX
+
+    cat > /workspace/frontend/src/App.jsx << 'APPJSX'
+    export default function App() {
+      return <div style={{padding:'2rem',color:'#fff',background:'#111',minHeight:'100vh'}}>
+        <h1>Notes App — scaffold ready</h1>
+      </div>
+    }
+    APPJSX
+
+    cd /workspace/frontend && npm install
+
+preview:
+  port: 3000
+  path: "/"
+
+task:
+  instruction: |
+    Two projects are scaffolded and their dependencies installed:
+      • Backend:  /workspace/backend/   (Express, cors — already installed)
+      • Frontend: /workspace/frontend/  (React + Vite — already installed)
+
+    DO NOT run npm install again.
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 1 — BACKEND  (/workspace/backend/server.js)
+    ══════════════════════════════════════════════════════════════════════════
+    Write an Express REST API on PORT 3001 with in-memory note storage.
+
+    Endpoints:
+      GET    /api/notes         → return all notes (array)
+      POST   /api/notes         → create note, body: {title, content}
+                                  auto-assign id + createdAt timestamp
+      GET    /api/notes/:id     → return single note (404 if missing)
+      PUT    /api/notes/:id     → update title and/or content (404 if missing)
+      DELETE /api/notes/:id     → delete note (404 if missing), return {deleted:true}
+
+    Requirements:
+      • Use cors() middleware (already installed) to allow all origins
+      • Use express.json() for body parsing
+      • Seed 3 notes on startup so the UI has data immediately
+      • Return JSON with proper status codes
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 2 — FRONTEND  (/workspace/frontend/src/App.jsx)
+    ══════════════════════════════════════════════════════════════════════════
+    Build a Notes app UI that talks to the backend via /api/* (Vite will proxy).
+
+    The UI must:
+      • List all notes fetched from GET /api/notes on load
+      • Show each note: title, content, creation time, Delete button
+      • Form at the top: title input + textarea + "Add Note" button → POST /api/notes
+      • Delete button calls DELETE /api/notes/:id, removes from UI
+      • Dark pixel aesthetic (background #0d0d0d, accent #f5a623)
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 3 — VITE PROXY CONFIG  (/workspace/frontend/vite.config.js)
+    ══════════════════════════════════════════════════════════════════════════
+    Write vite.config.js so that:
+      • Frontend dev server binds to 0.0.0.0:3000
+      • All /api/* requests are proxied to http://localhost:3001
+
+    Example proxy config:
+      server: {
+        host: '0.0.0.0',
+        port: 3000,
+        proxy: { '/api': 'http://localhost:3001' }
+      }
+
+    ══════════════════════════════════════════════════════════════════════════
+    STARTUP SEQUENCE
+    ══════════════════════════════════════════════════════════════════════════
+    1. Start backend first (run_background):
+         command: "cd /workspace/backend && node server.js"
+         wait_seconds: 3
+
+    2. Start frontend (run_background):
+         command: "cd /workspace/frontend && npm run dev"
+         wait_seconds: 6
+
+    3. Verify both are up:
+         curl -sf http://localhost:3001/api/notes
+         curl -sf http://localhost:3000/
+
+    ── RULES ──────────────────────────────────────────────────────────────────
+    • Use ESM (import/export) in both projects
+    • No external state libs — plain React useState/useEffect
+    • MUST write vite.config.js (do not rely on the placeholder)
+  context: null
+  max_turns:  25
+  timeout_s:  300
+
+modes:
+  guided:
+    system_prompt: |
+      You are a step-by-step full-stack engineer agent in a Docker sandbox.
+      Both Express (backend) and Vite+React (frontend) are pre-installed.
+      Do NOT run npm install in either project.
+
+      APPROACH — follow this exact sequence:
+
+      STEP 1 — Write backend (/workspace/backend/server.js)
+        • ESM imports; express + cors already installed
+        • Seed 3 notes on startup: [{id,title,content,createdAt}]
+        • Mount routes under /api/notes; listen on port 3001
+
+      STEP 2 — Write frontend (/workspace/frontend/src/App.jsx)
+        • fetch('/api/notes') on mount (proxied to 3001 by Vite)
+        • Add form, note list with delete buttons
+        • Dark pixel theme (#0d0d0d bg, #f5a623 accent)
+
+      STEP 3 — Write /workspace/frontend/vite.config.js
+        import { defineConfig } from 'vite'
+        import react from '@vitejs/plugin-react'
+        export default defineConfig({
+          plugins: [react()],
+          server: { host:'0.0.0.0', port:3000, proxy:{ '/api':'http://localhost:3001' } }
+        })
+
+      STEP 4 — Start both servers (in order):
+        run_background  command="cd /workspace/backend && node server.js"   wait_seconds=3
+        run_background  command="cd /workspace/frontend && npm run dev"     wait_seconds=7
+
+      STEP 5 — Verify:
+        bash: curl -sf http://localhost:3001/api/notes   (backend direct)
+        bash: curl -sf http://localhost:3000/            (frontend)
+        bash: curl -sf http://localhost:3000/api/notes   (proxy)
+
+      When done, confirm both servers are running and the proxy is working.
+  unguided:
+    system_prompt: |
+      You are a capable full-stack engineer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - list_dir
+  - run_background
+  - patch_file
+
+evaluation:
+  type:              script
+  efficiency_target: 14
+  criteria:
+    - id:          backend_responds
+      description: "Express backend responds on port 3001"
+      type:        script
+      check:       "curl -sf http://localhost:3001/api/notes > /dev/null"
+      weight:      3.0
+
+    - id:          backend_returns_notes
+      description: "GET /api/notes returns a JSON array with seeded data"
+      type:        script
+      check:       >
+        curl -sf http://localhost:3001/api/notes |
+        python3 -c "import sys,json; notes=json.load(sys.stdin); assert isinstance(notes,list) and len(notes)>=3"
+      weight:      2.0
+
+    - id:          backend_post_note
+      description: "POST /api/notes creates a note with id + createdAt"
+      type:        script
+      check:       >
+        curl -sf -X POST -H 'Content-Type: application/json'
+        -d '{"title":"Benchmark","content":"Created by benchb0t"}'
+        http://localhost:3001/api/notes |
+        python3 -c "import sys,json; n=json.load(sys.stdin); assert 'id' in n and 'createdAt' in n"
+      weight:      2.0
+
+    - id:          backend_delete_note
+      description: "DELETE /api/notes/:id removes the note"
+      type:        script
+      check:       >
+        ID=$(curl -sf http://localhost:3001/api/notes | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])") &&
+        curl -sf -X DELETE http://localhost:3001/api/notes/$ID |
+        python3 -c "import sys,json; r=json.load(sys.stdin); assert r.get('deleted')==True"
+      weight:      1.5
+
+    - id:          frontend_responds
+      description: "Vite frontend responds on port 3000"
+      type:        script
+      check:       "curl -sf http://localhost:3000/ > /dev/null"
+      weight:      3.0
+
+    - id:          vite_proxy_works
+      description: "Frontend proxies /api to backend (curl via port 3000)"
+      type:        script
+      check:       >
+        curl -sf http://localhost:3000/api/notes |
+        python3 -c "import sys,json; notes=json.load(sys.stdin); assert isinstance(notes,list)"
+      weight:      2.5
+
+    - id:          frontend_uses_fetch
+      description: "App.jsx uses fetch to call the API"
+      type:        script
+      check:       "grep -qiE 'fetch|axios|useEffect' /workspace/frontend/src/App.jsx"
+      weight:      1.0
+
+    - id:          frontend_dark_theme
+      description: "App.jsx has dark pixel theme"
+      type:        script
+      check:       "grep -qiE '#0d0d0d|#0a0a0a|#111|#f5a623|background.*#[0-2]' /workspace/frontend/src/App.jsx"
+      weight:      0.5

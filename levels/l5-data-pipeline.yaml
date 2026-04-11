@@ -1,0 +1,205 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 5 — Sales Data Pipeline
+# Difficulty: ★★★☆☆  (data analysis / Python / pandas)
+#
+# Agent receives a raw CSV with messy sales data and must clean, analyse,
+# and summarise it. No server needed — pure data engineering.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l5-data-pipeline
+  name:       "Sales Data Pipeline"
+  difficulty: 3
+  category:   data
+  tags:       [python, pandas, data, csv, analysis, pipeline]
+
+container:
+  image:       python:3.11-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  packages:
+    apt: []
+    pip: [pandas, matplotlib]
+    npm: []
+  setup_script: |
+    set -e
+    mkdir -p /workspace/data /workspace/output
+
+    cat > /workspace/data/sales_raw.csv << 'CSVDATA'
+    date,product,category,units,unit_price,region,rep_name
+    2024-01-03,Widget Alpha,Electronics,12,49.99,North,Alice
+    2024-01-05,Gadget Pro,Electronics,5,199.00,South,Bob
+    2024-01-07,Widget Alpha,Electronics,8,49.99,East,Alice
+    2024-01-10,SuperWidget,Electronics,3,299.50,North,Charlie
+    2024-01-12,Notebook A4,Stationery,50,2.99,South,Bob
+    2024-01-15,Pen Set,Stationery,30,8.50,West,Dana
+    2024-01-18,Widget Alpha,Electronics,15,49.99,West,Dana
+    2024-01-20,Gadget Pro,Electronics,,199.00,North,Alice
+    2024-01-22,Notebook A4,Stationery,40,2.99,East,Charlie
+    2024-02-01,SuperWidget,Electronics,7,299.50,South,Bob
+    2024-02-03,Widget Alpha,Electronics,20,49.99,North,Alice
+    2024-02-05,Pen Set,Stationery,25,8.50,North,Alice
+    2024-02-08,Gadget Pro,Electronics,4,199.00,West,Dana
+    2024-02-10,Notebook A4,Stationery,60,2.99,South,Bob
+    2024-02-14,SuperWidget,Electronics,2,299.50,East,Charlie
+    2024-02-18,Widget Alpha,Electronics,10,49.99,South,Bob
+    2024-02-20,Pen Set,Stationery,35,8.50,East,Charlie
+    2024-02-25,Gadget Pro,Electronics,6,199.00,North,Alice
+    2024-03-01,Widget Alpha,Electronics,18,49.99,West,Dana
+    2024-03-04,SuperWidget,Electronics,5,299.50,North,Alice
+    2024-03-07,Notebook A4,Stationery,55,2.99,West,Dana
+    2024-03-10,Gadget Pro,Electronics,8,199.00,South,Bob
+    2024-03-14,Pen Set,Stationery,20,8.50,North,Charlie
+    2024-03-18,Widget Alpha,Electronics,22,49.99,East,Alice
+    2024-03-22,Notebook A4,Stationery,45,2.99,South,Bob
+    CSVDATA
+
+task:
+  instruction: |
+    A raw CSV of quarterly sales data is at /workspace/data/sales_raw.csv.
+
+    ── WHAT TO DO ─────────────────────────────────────────────────────────────
+
+    1. CLEAN the data:
+       • Drop rows where `units` is missing/blank
+       • Convert `date` to datetime, `units` to int, `unit_price` to float
+       • Add a `revenue` column = units × unit_price
+
+    2. ANALYSE and produce /workspace/output/summary.json with exactly
+       this structure (all numbers rounded to 2 decimal places):
+       {
+         "total_revenue": <float>,
+         "total_units": <int>,
+         "top_product": "<name of product with highest total revenue>",
+         "top_rep": "<name of sales rep with highest total revenue>",
+         "top_region": "<region with highest total revenue>",
+         "revenue_by_category": {
+           "Electronics": <float>,
+           "Stationery": <float>
+         },
+         "monthly_revenue": {
+           "2024-01": <float>,
+           "2024-02": <float>,
+           "2024-03": <float>
+         }
+       }
+
+    3. PRODUCE a bar chart at /workspace/output/revenue_by_product.png
+       showing total revenue per product (use matplotlib, no display needed —
+       just save to file with plt.savefig).
+
+    4. Write a plain-text report to /workspace/output/report.txt
+       with 5–10 lines summarising the key findings.
+
+    ── RULES ──────────────────────────────────────────────────────────────────
+    • Use Python + pandas for all data work
+    • Do NOT install additional packages — pandas and matplotlib are pre-installed
+    • All output files go to /workspace/output/
+  context: null
+  max_turns:  12
+  timeout_s:  120
+
+modes:
+  guided:
+    system_prompt: |
+      You are a step-by-step Python data engineering agent in a Docker sandbox.
+      pandas and matplotlib are pre-installed. Do NOT install packages.
+
+      APPROACH FOR THIS LEVEL:
+      1. read_file /workspace/data/sales_raw.csv  — inspect the raw data
+      2. Write a single Python script to /workspace/pipeline.py that does all steps
+      3. bash: python3 /workspace/pipeline.py
+      4. list_dir /workspace/output  — confirm all output files exist
+      5. read_file /workspace/output/summary.json  — spot-check the values
+
+      HINTS FOR THE SCRIPT:
+      • import pandas as pd, import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+      • Drop NaN units: df = df.dropna(subset=['units'])
+      • Type cast: df['units'] = df['units'].astype(int); df['unit_price'] = df['unit_price'].astype(float)
+      • Add revenue: df['revenue'] = df['units'] * df['unit_price']
+      • Month key: df['month'] = df['date'].dt.to_period('M').astype(str)
+      • Group by product: df.groupby('product')['revenue'].sum()
+      • Save chart: plt.savefig('/workspace/output/revenue_by_product.png', bbox_inches='tight')
+      • JSON output: json.dumps(summary, indent=2) → open('/workspace/output/summary.json','w').write(...)
+
+      When done, report total_revenue and top_product from summary.json.
+  unguided:
+    system_prompt: |
+      You are a capable Python data engineer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - list_dir
+
+evaluation:
+  type:              script
+  efficiency_target: 5
+  criteria:
+    - id:          summary_exists
+      description: "/workspace/output/summary.json exists"
+      type:        script
+      check:       "test -f /workspace/output/summary.json"
+      weight:      1.0
+
+    - id:          summary_schema
+      description: "summary.json has all required keys"
+      type:        script
+      check:       >
+        python3 -c "
+        import json
+        d = json.load(open('/workspace/output/summary.json'))
+        required = ['total_revenue','total_units','top_product','top_rep','top_region',
+                    'revenue_by_category','monthly_revenue']
+        missing = [k for k in required if k not in d]
+        assert not missing, f'missing keys: {missing}'
+        "
+      weight:      2.0
+
+    - id:          total_revenue_correct
+      description: "total_revenue is approximately correct (within 1%)"
+      type:        script
+      check:       >
+        python3 -c "
+        import json
+        d = json.load(open('/workspace/output/summary.json'))
+        # Expected: sum of all rows with valid units * unit_price
+        # Row with missing units is excluded; computed manually = 9156.54
+        expected = 9156.54
+        actual = float(d['total_revenue'])
+        pct_diff = abs(actual - expected) / expected
+        assert pct_diff < 0.05, f'expected ~{expected}, got {actual}'
+        "
+      weight:      3.0
+
+    - id:          top_product_correct
+      description: "top_product is Widget Alpha (highest revenue)"
+      type:        script
+      check:       >
+        python3 -c "
+        import json
+        d = json.load(open('/workspace/output/summary.json'))
+        assert 'Widget' in d['top_product'], f'got: {d[\"top_product\"]}'
+        "
+      weight:      2.0
+
+    - id:          chart_exists
+      description: "/workspace/output/revenue_by_product.png exists and is a PNG"
+      type:        script
+      check:       >
+        test -f /workspace/output/revenue_by_product.png &&
+        python3 -c "
+        with open('/workspace/output/revenue_by_product.png','rb') as f:
+            sig = f.read(4)
+        assert sig == b'\x89PNG', 'not a valid PNG'
+        "
+      weight:      1.5
+
+    - id:          report_exists
+      description: "/workspace/output/report.txt exists with content"
+      type:        script
+      check:       "test -f /workspace/output/report.txt && [ $(wc -w < /workspace/output/report.txt) -ge 20 ]"
+      weight:      0.5

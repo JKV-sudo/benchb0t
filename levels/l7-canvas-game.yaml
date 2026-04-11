@@ -1,0 +1,168 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 7 — Pixel Snake Game
+# Difficulty: ★★★★☆  (game dev / HTML5 canvas / static server)
+#
+# Agent must build a playable Snake game in HTML5 canvas, served over HTTP.
+# No frameworks — pure vanilla JS. Static server via npx serve.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l7-canvas-game
+  name:       "Pixel Snake Game"
+  difficulty: 4
+  category:   game
+  tags:       [html5, canvas, javascript, game, pixel, vanillajs]
+
+container:
+  image:       node:20-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  packages:
+    apt: [curl]
+    pip: []
+    npm: []
+  setup_script: |
+    set -e
+    mkdir -p /workspace/snake-game
+
+    # Install a lightweight static file server globally
+    npm install -g serve 2>/dev/null || npm install -g http-server 2>/dev/null || true
+
+    cat > /workspace/snake-game/README.md << 'README'
+    # Snake Game
+
+    Build a pixel-style Snake game in a single index.html.
+    Serve it with: npx serve -p 8080 /workspace/snake-game
+    README
+
+preview:
+  port: 8080
+  path: "/"
+
+task:
+  instruction: |
+    Build a complete, playable pixel Snake game in a single HTML file.
+
+    ── WHAT TO BUILD ──────────────────────────────────────────────────────────
+    Create /workspace/snake-game/index.html — a self-contained HTML file
+    with all JavaScript and CSS inline (no external files, no CDN).
+
+    The game MUST have:
+    1. HTML5 <canvas> element (at least 400×400 px, grid-based)
+    2. Snake movement — arrow keys OR WASD to steer
+    3. Food spawning — random position, snake grows when eaten
+    4. Score counter — shown on screen, increments on each food eaten
+    5. Game over detection — wall collision + self-collision
+    6. Restart — press R or click a button to restart after game over
+    7. Pixel/retro aesthetic:
+       • Dark background (#0a0a0a)
+       • Snake in bright green (#00ff41) or amber (#f5a623)
+       • Food in red/pink (#ff0055)
+       • Score displayed in a monospace/pixel font
+       • Optional: short flicker animation on game over
+
+    ── STATIC SERVER ──────────────────────────────────────────────────────────
+    After writing the file, start a static server on port 8080:
+
+    Use run_background:
+      command: "npx --yes serve -p 8080 -s /workspace/snake-game"
+      wait_seconds: 5
+
+    Then verify: curl -sf http://localhost:8080/
+
+    ── RULES ──────────────────────────────────────────────────────────────────
+    • Single file only — everything in index.html
+    • Pure vanilla JS — no React, Vue, or game frameworks
+    • Game loop must use requestAnimationFrame or setInterval
+    • Must handle both keyboard events AND show start/game-over screen
+  context: null
+  max_turns:  15
+  timeout_s:  180
+
+modes:
+  guided:
+    system_prompt: |
+      You are a step-by-step game developer agent building a vanilla JS game in a Docker sandbox.
+      No frameworks — pure HTML + JS in one file.
+
+      APPROACH FOR THIS LEVEL:
+      1. write_file /workspace/snake-game/index.html  — the complete self-contained game
+      2. run_background  command="npx --yes serve -p 8080 -s /workspace/snake-game"  wait_seconds=6
+      3. bash: curl -sf http://localhost:8080/  — verify server responds
+
+      HINTS FOR THE GAME LOOP:
+      • Use setInterval(gameLoop, 150) — 150ms = comfortable snake speed
+      • Grid size: const CELL = 20; canvas 400×400 = 20×20 grid
+      • Snake stored as array of {x,y} segments; head is snake[0]
+      • On each tick: compute new head, check collisions, unshift new head, pop tail (unless ate food)
+      • Food: random {x,y} not overlapping snake; regenerate after eating
+      • Draw: ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H) — clear; then draw each cell
+
+      HINTS FOR INPUT:
+      document.addEventListener('keydown', e => {
+        if (e.key==='ArrowUp' && dir.y===0) dir={x:0,y:-1};
+        // etc...
+      });
+
+      HINTS FOR STATIC SERVER:
+      • npx --yes serve -p 8080 -s /workspace/snake-game
+      • OR: npx --yes http-server /workspace/snake-game -p 8080 --cors -s
+
+      When done, confirm the server is up and describe the game features.
+  unguided:
+    system_prompt: |
+      You are a capable game developer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - run_background
+
+evaluation:
+  type:              script
+  efficiency_target: 5
+  criteria:
+    - id:          server_responds
+      description: "Static server responds on port 8080"
+      type:        script
+      check:       "curl -sf http://localhost:8080/ > /dev/null"
+      weight:      3.0
+
+    - id:          index_html_exists
+      description: "/workspace/snake-game/index.html exists"
+      type:        script
+      check:       "test -f /workspace/snake-game/index.html"
+      weight:      1.0
+
+    - id:          has_canvas
+      description: "index.html contains an HTML5 canvas element"
+      type:        script
+      check:       "grep -qi '<canvas' /workspace/snake-game/index.html"
+      weight:      2.0
+
+    - id:          has_game_loop
+      description: "index.html has a game loop (requestAnimationFrame or setInterval)"
+      type:        script
+      check:       "grep -qiE 'requestAnimationFrame|setInterval' /workspace/snake-game/index.html"
+      weight:      1.5
+
+    - id:          has_keyboard_controls
+      description: "index.html has keyboard event handling"
+      type:        script
+      check:       "grep -qiE 'addEventListener.*key|keydown|keyup|ArrowUp|ArrowLeft|wasd' /workspace/snake-game/index.html"
+      weight:      1.5
+
+    - id:          has_score
+      description: "index.html tracks and displays score"
+      type:        script
+      check:       "grep -qiE 'score|Score|SCORE' /workspace/snake-game/index.html"
+      weight:      1.0
+
+    - id:          pixel_aesthetic
+      description: "index.html uses dark background and pixel colours"
+      type:        script
+      check:       "grep -qiE '#0a0a0a|#00ff|#f5a6|monospace|pixel' /workspace/snake-game/index.html"
+      weight:      0.5

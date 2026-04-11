@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 1 — Single File Task
+# Difficulty: ★☆☆☆☆  (beginner / smoke test)
+# The agent must read a file and write a transformed version of it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l1-single-file
+  name:       "Single File Transform"
+  difficulty: 1
+  category:   file-operations
+  tags:       [beginner, read, write, transform]
+
+container:
+  image:       python:3.11-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  volumes: []
+  packages:
+    apt: []      # no system packages needed
+    pip: []      # stdlib only — keeps the level minimal
+  setup_script: |
+    mkdir -p /workspace &&
+    printf 'hello world\nfoo bar\nbaz qux\n' > /workspace/input.txt
+
+task:
+  instruction: |
+    There is a file at /workspace/input.txt.
+    Read it, convert every word to UPPERCASE, and write the result to /workspace/output.txt.
+    Each line of the original file must remain on its own line in the output.
+  context: null
+  max_turns:  10
+  timeout_s:  60
+
+modes:
+  guided:
+    system_prompt: |
+      You are a precise file-transformation agent in a Docker sandbox.
+      APPROACH: read_file → transform content → write_file → done.
+      Use exactly 3 tool calls. No bash needed for this task.
+      When done, respond with a plain text summary.
+  unguided:
+    system_prompt: |
+      You are a capable agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - read_file
+  - write_file
+
+evaluation:
+  type:              script
+  efficiency_target: 3   # read + transform + write = 3 ideal tool calls
+  criteria:
+    - id:          output_exists
+      description: "/workspace/output.txt must exist"
+      type:        script
+      check:       "test -f /workspace/output.txt"
+      weight:      1.0
+
+    - id:          content_uppercase
+      description: "output.txt must contain the uppercased content"
+      type:        script
+      check:       "grep -q 'HELLO WORLD' /workspace/output.txt"
+      weight:      2.0
+
+    - id:          line_count_preserved
+      description: "output.txt must have the same number of lines as input.txt"
+      type:        script
+      check:       |
+        [ $(wc -l < /workspace/input.txt) -eq $(wc -l < /workspace/output.txt) ]
+      weight:      1.0
