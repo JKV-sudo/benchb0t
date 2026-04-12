@@ -116,11 +116,11 @@ class AgentAPI:
         Useful for live-watching the agent think.
         """
         kwargs: dict[str, Any] = {
-            "model": model or self.model,
-            "messages": messages,
+            "model":       model or self.model,
+            "messages":    messages,
             "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens or self.max_tokens,
-            "stream": True,
+            "max_tokens":  max_tokens or self.max_tokens,
+            "stream":      True,
         }
         if tools:
             kwargs["tools"] = tools
@@ -128,11 +128,16 @@ class AgentAPI:
 
         try:
             logger.debug("→ stream chat | model=%s", kwargs["model"])
-            with self._client.chat.completions.stream(**kwargs) as stream:
-                for chunk in stream:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        yield delta
+            # Use .create() with stream=True — compatible with all OAI-compatible backends
+            # (Ollama, vLLM, OpenRouter, …).  The SDK's .stream() context manager is
+            # openai-only and rejects the `stream` kwarg we pass.
+            stream = self._client.chat.completions.create(**kwargs)
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
         except APIError as exc:
             raise RuntimeError(f"Stream API error: {exc}") from exc
 

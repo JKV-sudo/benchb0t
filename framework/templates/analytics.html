@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>benchb0t · BENCHB0T-DEX</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* ── App theme (matches dashboard + builder) ── */
+:root {
+  --bg:    #0a0800; --panel: #100d00; --panel2: #151000;
+  --b1:    #241e00; --b2:    #3a3000; --b3:    #4a3f00;
+  --y1:    #ffd700; --y2:    #ffb300; --y3:    #ff8c00;
+  --ydk:   #7a6000; --text:  #ffe87a; --dim:   #5a4a10; --dim2: #3a3000;
+  --green: #39ff14; --red:   #ff3a3a;
+  /* Dex-specific stat bar colours — still within the warm amber palette */
+  --s-hp:   #ff5959;   /* red    → completion */
+  --s-atk:  #ffd700;   /* gold   → efficiency */
+  --s-def:  #39ff14;   /* green  → self-correction */
+  --s-sp:   #ffb300;   /* amber  → path quality */
+  --s-spd:  #ff8c00;   /* orange → speed (inv turns) */
+  --font: 'Press Start 2P', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  min-height: 100%; background: var(--bg);
+  color: var(--text); font-family: var(--font); font-size: 10px;
+}
+/* CRT scanlines — same as rest of app */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,0,0,.07) 3px, rgba(0,0,0,.07) 4px
+  );
+}
+a { color: var(--y2); text-decoration: none; }
+a:hover { color: var(--y1); }
+
+/* ── HEADER ── */
+header {
+  background: var(--panel); border-bottom: 3px solid var(--y1);
+  padding: 0 20px; height: 52px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 2px 20px rgba(255,215,0,.15);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  color: var(--y1); font-size: 13px; letter-spacing: 3px;
+  text-shadow: 0 0 20px var(--y1);
+}
+.logo-sub { font-size: 5px; color: var(--ydk); letter-spacing: 4px; }
+.sep  { color: var(--b3); }
+.nav-lnk { font-size: 7px; color: var(--dim); letter-spacing: 2px; }
+.nav-lnk:hover { color: var(--y1); }
+.hdr-r { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+
+/* LED trio */
+.led-row { display: flex; gap: 5px; align-items: center; }
+.led {
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 1px solid var(--b1);
+}
+.led-y { background: var(--y1); box-shadow: 0 0 6px var(--y1); }
+.led-g { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2.4s ease-in-out infinite; }
+.led-o { background: var(--y3); box-shadow: 0 0 5px var(--y3); }
+@keyframes blink { 0%,100%{ opacity:1 } 50%{ opacity:.25 } }
+
+/* ── PAGE ── */
+.page { max-width: 1340px; margin: 0 auto; padding: 22px 20px 48px; }
+
+/* ── SECTION TITLES ── */
+.sec-title {
+  font-size: 6px; letter-spacing: 3px; color: var(--ydk);
+  text-transform: uppercase; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-title::before { content: '▶'; color: var(--y2); }
+.sec-title::after  { content: ''; flex: 1; height: 1px; background: var(--b2); margin-left: 6px; }
+
+/* ── SUMMARY STAT CARDS ── */
+.cards { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+.card {
+  background: var(--panel); border: 2px solid var(--b2);
+  padding: 14px 16px; min-width: 130px; flex: 1;
+  position: relative; overflow: hidden;
+}
+/* colour strip at top: mimics Pokémon type strip */
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.card.c-hp::before  { background: var(--s-hp); }
+.card.c-atk::before { background: var(--s-atk); box-shadow: 0 0 6px var(--y1); }
+.card.c-def::before { background: var(--s-def); }
+.card.c-sp::before  { background: var(--s-sp); }
+.card.c-spd::before { background: var(--s-spd); }
+.card.c-str::before { background: var(--y2); }
+
+.card-val { font-size: 22px; color: var(--y1); text-shadow: 0 0 16px rgba(255,215,0,.4); margin-bottom: 7px; }
+.card-lbl { font-size: 6px; color: var(--dim); letter-spacing: 2px; }
+.card-tag { font-size: 5px; color: var(--ydk); letter-spacing: 1px; margin-top: 3px; }
+
+/* ── DEX ENTRY ── */
+.dex-entry {
+  background: var(--panel); border: 2px solid var(--y1);
+  margin-bottom: 28px; overflow: hidden;
+  box-shadow: 0 0 20px rgba(255,215,0,.08);
+}
+.dex-entry-header {
+  background: var(--b1); border-bottom: 2px solid var(--y1);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.dex-num  { font-size: 9px; color: var(--ydk); letter-spacing: 2px; }
+.dex-title { font-size: 7px; color: var(--y1); letter-spacing: 3px; }
+.dex-sel {
+  background: var(--bg); border: 2px solid var(--b2);
+  color: var(--text); font-family: var(--font); font-size: 7px;
+  padding: 5px 8px; outline: none; cursor: pointer; margin-left: auto;
+}
+.dex-sel:focus { border-color: var(--y1); }
+.dex-sel option { background: var(--panel); }
+.dex-meta { font-size: 5px; color: var(--dim); letter-spacing: 1px; }
+
+.dex-body { display: flex; flex-wrap: wrap; }
+
+/* LEFT: phosphor screen with sprite + score */
+.dex-screen {
+  width: 210px; flex-shrink: 0;
+  background: #050f05;
+  border-right: 2px solid var(--b2);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 14px; gap: 10px;
+  position: relative;
+}
+/* inner bezel */
+.dex-screen::before {
+  content: ''; position: absolute; inset: 8px;
+  border: 1px solid #1a3a1a; pointer-events: none;
+}
+/* scan beam — fires on .scanning class */
+@keyframes scan {
+  0%   { top: -20%; opacity: .7; }
+  100% { top: 110%;  opacity: 0; }
+}
+.dex-screen::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 16px;
+  background: linear-gradient(180deg, transparent, rgba(57,255,20,.18), transparent);
+  top: -20%; opacity: 0; pointer-events: none;
+}
+.dex-entry.scanning .dex-screen::after {
+  animation: scan .5s ease-out forwards;
+}
+
+.sprite-svg { width: 96px; height: 96px; }
+.dex-score-wrap { text-align: center; }
+.dex-score { font-size: 24px; color: #c8ff88; text-shadow: 0 0 14px #39ff14; }
+.dex-score-lbl { font-size: 5px; color: #306230; letter-spacing: 3px; margin-top: 3px; }
+.dex-name { font-size: 6px; color: #9bbc0f; letter-spacing: 2px; text-align: center; word-break: break-all; text-shadow: 0 0 8px #39ff14; }
+.dex-stars-row { display: flex; gap: 3px; }
+.ds-on  { color: var(--y1); font-size: 12px; text-shadow: 0 0 6px var(--y1); }
+.ds-off { color: var(--b2); font-size: 12px; }
+
+/* RIGHT: stat bars */
+.dex-stats { flex: 1; padding: 18px 20px; min-width: 260px; }
+
+.stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.stat-lbl  { font-size: 6px; letter-spacing: 1px; width: 54px; flex-shrink: 0; text-transform: uppercase; }
+.stat-lbl.hp  { color: var(--s-hp); }
+.stat-lbl.atk { color: var(--s-atk); }
+.stat-lbl.def { color: var(--s-def); }
+.stat-lbl.sp  { color: var(--s-sp); }
+.stat-lbl.spd { color: var(--s-spd); }
+
+.stat-bar-o {
+  flex: 1; height: 7px;
+  background: var(--bg); border: 1px solid var(--b2);
+}
+.stat-bar-i {
+  height: 100%; transition: width .55s cubic-bezier(.4,0,.2,1);
+}
+.stat-bar-i.hp  { background: linear-gradient(90deg, #660000, var(--s-hp)); }
+.stat-bar-i.atk { background: linear-gradient(90deg, var(--ydk), var(--s-atk)); box-shadow: 0 0 4px rgba(255,215,0,.3); }
+.stat-bar-i.def { background: linear-gradient(90deg, #1a4a00, var(--s-def)); }
+.stat-bar-i.sp  { background: linear-gradient(90deg, #6a4800, var(--s-sp)); }
+.stat-bar-i.spd { background: linear-gradient(90deg, #6a3000, var(--s-spd)); }
+
+.stat-val  { font-size: 8px; color: var(--text); width: 30px; text-align: right; flex-shrink: 0; }
+.stat-hint { font-size: 5px; color: var(--dim); letter-spacing: 1px; }
+
+/* Level conquest grid */
+.conquest-lbl { font-size: 5px; color: var(--ydk); letter-spacing: 2px; text-transform: uppercase; margin: 14px 0 8px; }
+.conquest-grid { display: flex; gap: 5px; flex-wrap: wrap; }
+.cq-cell {
+  width: 42px; padding: 5px 3px;
+  border: 1px solid var(--b2); background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: default; position: relative;
+}
+.cq-cell.cleared { border-color: var(--ydk); background: var(--b1); }
+.cq-cell.cleared.gold  { border-color: var(--y1); box-shadow: 0 0 6px rgba(255,215,0,.25); }
+.cq-cell-id   { font-size: 4px; color: var(--dim); letter-spacing: 1px; }
+.cq-cell-id.cleared { color: var(--ydk); }
+.cq-stars { display: flex; gap: 1px; }
+.cqs-on   { color: var(--y1); font-size: 7px; }
+.cqs-off  { color: var(--b2); font-size: 7px; }
+.cq-score { font-size: 5px; color: var(--dim2); }
+.cq-score.cleared { color: var(--text); }
+
+/* ── TWO-COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── TABLES ── */
+.tbl-wrap { background: var(--panel); border: 2px solid var(--b2); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: 5px; letter-spacing: 2px; color: var(--dim);
+  padding: 7px 10px; border-bottom: 2px solid var(--b2);
+  text-transform: uppercase; white-space: nowrap;
+}
+td { font-size: 7px; padding: 6px 10px; border-bottom: 1px solid var(--b1); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--panel2); cursor: pointer; }
+
+.td-score   { color: var(--y1); }
+.td-dim     { color: var(--dim); font-size: 6px; }
+.td-rank    { color: var(--ydk); font-size: 7px; }
+.bar-cell   { min-width: 72px; }
+.mini-bar-o { height: 4px; background: var(--bg); border: 1px solid var(--b2); }
+.mini-bar-i { height: 100%; }
+
+.diff-pip   { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 2px; vertical-align: middle; }
+.diff-on    { background: var(--y1); box-shadow: 0 0 4px var(--y1); }
+.diff-off   { background: var(--b2); }
+
+.pass-rate      { font-size: 6px; }
+.pass-rate.good { color: var(--green); }
+.pass-rate.mid  { color: var(--y2); }
+.pass-rate.bad  { color: var(--red); }
+
+.run-model { color: var(--y2); }
+.run-level { color: var(--text); }
+.s-on  { color: var(--y1); }
+.s-off { color: var(--b3); }
+
+.empty { text-align: center; padding: 40px; color: var(--dim); font-size: 8px; line-height: 2.5; }
+
+/* ── RUN HISTORY filter bar ── */
+.hist-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-bottom: 10px; padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--b2);
+}
+.hist-bar select, .hist-bar input {
+  background: var(--bg); border: 1px solid var(--b2); color: var(--text);
+  font-family: var(--font); font-size: 6px; padding: 4px 7px; outline: none;
+  -webkit-appearance: none;
+}
+.hist-bar select:focus, .hist-bar input:focus { border-color: var(--y1); }
+.hist-bar label { font-size: 5px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; }
+.hist-bar-group { display: flex; flex-direction: column; gap: 3px; }
+.hist-btn {
+  font-family: var(--font); font-size: 5px; letter-spacing: 1.5px;
+  background: none; border: 1px solid var(--b3); color: var(--dim);
+  padding: 4px 10px; cursor: pointer; text-transform: uppercase;
+  margin-left: auto;
+}
+.hist-btn:hover { border-color: var(--y1); color: var(--y1); }
+.hist-pager {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 6px; color: var(--dim); justify-content: flex-end;
+}
+.hist-pager button {
+  font-family: var(--font); font-size: 5px; background: none;
+  border: 1px solid var(--b3); color: var(--dim); padding: 3px 8px; cursor: pointer;
+}
+.hist-pager button:hover { border-color: var(--y1); color: var(--y1); }
+.hist-pager button:disabled { opacity: .3; cursor: default; }
+.run-id { font-size: 6px; color: var(--ydk); font-family: var(--font); letter-spacing: 1px; }
+.run-id:hover { color: var(--y1); }
+tr.timed-out td { opacity: .65; }
+tr.timed-out .run-id::after { content: ' ⏱'; color: var(--red); }
+
+/* ── RUN DETAIL DRAWER ── */
+.run-drawer {
+  position: fixed; top: 0; right: -540px; width: 520px; height: 100vh;
+  background: var(--panel); border-left: 3px solid var(--y1);
+  display: flex; flex-direction: column; z-index: 500;
+  transition: right .25s ease; overflow: hidden;
+}
+.run-drawer.open { right: 0; }
+.rd-hdr {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  border-bottom: 2px solid var(--b2); flex-shrink: 0;
+}
+.rd-id   { font-size: 8px; color: var(--y1); letter-spacing: 2px; }
+.rd-meta { font-size: 6px; color: var(--dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-close {
+  background: none; border: 1px solid var(--b3); color: var(--dim);
+  font-family: var(--font); font-size: 6px; padding: 3px 8px; cursor: pointer;
+}
+.rd-close:hover { border-color: var(--red); color: var(--red); }
+.rd-score-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--b2); flex-shrink: 0;
+}
+.rd-score-big { font-size: 20px; color: var(--y1); min-width: 48px; text-align: center; }
+.rd-score-stars { font-size: 10px; color: var(--y1); }
+.rd-dims {
+  flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+  font-size: 5px;
+}
+.rd-dim-row { display: flex; align-items: center; gap: 4px; }
+.rd-dim-lbl { color: var(--dim); letter-spacing: 1px; width: 60px; flex-shrink: 0; }
+.rd-dim-bar-o { flex: 1; height: 4px; background: var(--bg); border: 1px solid var(--b2); }
+.rd-dim-bar-i { height: 100%; background: var(--y2); }
+.rd-dim-val { color: var(--text); width: 28px; text-align: right; }
+.rd-badges {
+  display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 14px;
+  border-bottom: 1px solid var(--b2); flex-shrink: 0;
+}
+.rd-badge {
+  font-size: 5px; letter-spacing: 1px; padding: 2px 6px;
+  border: 1px solid var(--b3); color: var(--dim);
+}
+.rd-badge.warn { border-color: var(--red); color: var(--red); }
+.rd-events {
+  flex: 1; overflow-y: auto; padding: 8px 14px;
+  font-size: 6px; line-height: 1.8;
+}
+.rd-events::-webkit-scrollbar { width: 3px; }
+.rd-events::-webkit-scrollbar-thumb { background: var(--b2); }
+.rd-ev { border-left: 2px solid var(--b2); padding-left: 8px; margin-bottom: 6px; }
+.rd-ev.msg-a  { border-color: var(--y2); }
+.rd-ev.msg-u  { border-color: var(--b3); }
+.rd-ev.tool   { border-color: var(--green); }
+.rd-ev.result { border-color: var(--b3); }
+.rd-ev.info   { border-color: var(--ydk); }
+.rd-ev-type   { font-size: 5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); }
+.rd-ev-body   { color: var(--text); white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow: hidden; }
+.rd-ev-body.expanded { max-height: none; }
+.rd-ev-expand { font-size: 5px; color: var(--y2); cursor: pointer; }
+.rd-empty { text-align: center; padding: 30px; color: var(--dim); font-size: 6px; }
+
+/* ── FLOATING CHAT ── */
+.chat-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 200;
+  background: var(--y1); color: #000; border: none;
+  font-family: var(--font); font-size: 7px; letter-spacing: 2px;
+  padding: 11px 14px; cursor: pointer;
+  box-shadow: 0 0 20px rgba(255,215,0,.4);
+}
+.chat-fab:hover { background: var(--y2); }
+.chat-fab.active { background: var(--b1); color: var(--y1); border: 2px solid var(--y1); }
+.chat-float {
+  position: fixed; bottom: 72px; right: 24px; z-index: 201;
+  width: 340px;
+  background: var(--panel); border: 2px solid var(--y1);
+  display: none; flex-direction: column;
+  box-shadow: 0 0 30px rgba(255,215,0,.15);
+}
+.chat-float.open { display: flex; }
+.cf-hdr {
+  background: var(--b1); border-bottom: 2px solid var(--y1);
+  padding: 9px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.cf-title { font-size: 7px; color: var(--y1); letter-spacing: 3px; }
+.cf-model { font-size: 5px; color: var(--dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cf-close {
+  background: none; border: 1px solid var(--b3); color: var(--dim);
+  font-family: var(--font); font-size: 8px; cursor: pointer; padding: 1px 6px; line-height: 1;
+}
+.cf-close:hover { border-color: var(--red); color: var(--red); }
+.cf-ctx {
+  padding: 4px 10px; font-size: 5px; color: var(--ydk);
+  border-bottom: 1px solid var(--b1); flex-shrink: 0; letter-spacing: 1px; background: var(--panel2);
+}
+.cf-msgs {
+  overflow-y: auto; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; min-height: 120px; max-height: 320px;
+}
+.cf-msgs::-webkit-scrollbar { width: 3px; }
+.cf-msgs::-webkit-scrollbar-thumb { background: var(--b2); }
+.cf-msg { display: flex; flex-direction: column; gap: 3px; }
+.cf-role { font-size: 5px; letter-spacing: 2px; text-transform: uppercase; }
+.cf-role.user { color: var(--ydk); }
+.cf-role.assistant { color: var(--y1); }
+.cf-body {
+  font-size: 7px; line-height: 1.8; color: var(--text);
+  white-space: pre-wrap; word-break: break-word; padding: 5px 8px;
+}
+.cf-msg.user .cf-body { background: var(--panel2); border-left: 2px solid var(--ydk); }
+.cf-msg.assistant .cf-body { border-left: 2px solid var(--y1); }
+.cf-msg.error .cf-body { color: var(--red); }
+.cf-cursor {
+  display: inline-block; width: 7px; height: 10px; background: var(--y1);
+  vertical-align: text-bottom; margin-left: 2px;
+  animation: cfblink .7s step-end infinite;
+}
+@keyframes cfblink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+.cf-input-wrap {
+  padding: 8px; border-top: 2px solid var(--b1); flex-shrink: 0;
+  display: flex; gap: 6px; align-items: flex-end;
+}
+.cf-textarea {
+  flex: 1; background: var(--bg); border: 2px solid var(--b2); color: var(--text);
+  font-family: var(--font); font-size: 7px; padding: 6px 8px;
+  resize: none; outline: none; line-height: 1.7; min-height: 44px;
+}
+.cf-textarea:focus { border-color: var(--y1); }
+.cf-send {
+  background: var(--y1); color: #000; border: none;
+  font-family: var(--font); font-size: 6px; padding: 8px 10px; cursor: pointer; flex-shrink: 0;
+}
+.cf-send:hover { background: var(--y2); }
+.cf-send:disabled { background: var(--b2); color: var(--dim); cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="led-row">
+    <div class="led led-y"></div>
+    <div class="led led-g"></div>
+    <div class="led led-o"></div>
+  </div>
+  <span class="sep">│</span>
+  <div>
+    <div class="logo">benchb0t</div>
+    <div class="logo-sub">BENCHB0T&#x2011;DEX · ANALYTICS</div>
+  </div>
+  <div class="hdr-r">
+    <a class="nav-lnk" href="/builder">BUILDER</a>
+    <a class="nav-lnk" href="/">← LIVE</a>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- SUMMARY CARDS -->
+  <div class="sec-title">overview</div>
+  <div class="cards">
+    <div class="card c-hp">
+      <div class="card-val" id="s-runs">—</div>
+      <div class="card-lbl">total runs</div>
+      <div class="card-tag">HP</div>
+    </div>
+    <div class="card c-atk">
+      <div class="card-val" id="s-models">—</div>
+      <div class="card-lbl">models tested</div>
+      <div class="card-tag">ATK</div>
+    </div>
+    <div class="card c-def">
+      <div class="card-val" id="s-levels">—</div>
+      <div class="card-lbl">levels run</div>
+      <div class="card-tag">DEF</div>
+    </div>
+    <div class="card c-sp">
+      <div class="card-val" id="s-avg">—</div>
+      <div class="card-lbl">avg score</div>
+      <div class="card-tag">SP.ATK</div>
+    </div>
+    <div class="card c-spd">
+      <div class="card-val" id="s-best">—</div>
+      <div class="card-lbl">best score</div>
+      <div class="card-tag">SPEED</div>
+    </div>
+    <div class="card c-str">
+      <div class="card-val" id="s-stars">—</div>
+      <div class="card-lbl">total stars</div>
+      <div class="card-tag">★</div>
+    </div>
+  </div>
+
+  <!-- DEX ENTRY -->
+  <div class="sec-title">dex entry</div>
+  <div class="dex-entry" id="dex-entry">
+    <div class="dex-entry-header">
+      <span class="dex-num" id="dex-num">#---</span>
+      <span class="dex-title">MODEL DATA</span>
+      <span class="dex-meta" id="dex-meta"></span>
+      <select class="dex-sel" id="fp-sel" onchange="onModelSelect()">
+        <option value="">— pick a model —</option>
+      </select>
+    </div>
+    <div class="dex-body">
+
+      <!-- Phosphor screen -->
+      <div class="dex-screen">
+        <svg class="sprite-svg" id="dex-sprite" viewBox="0 0 96 96">
+          <g id="sprite-pixels"></g>
+        </svg>
+        <div class="dex-score-wrap">
+          <div class="dex-score" id="fp-score">—</div>
+          <div class="dex-score-lbl">OVERALL</div>
+        </div>
+        <div class="dex-name" id="fp-name">—</div>
+        <div class="dex-stars-row" id="fp-stars-row"></div>
+      </div>
+
+      <!-- Stats + conquest grid -->
+      <div class="dex-stats">
+        <div class="stat-row">
+          <span class="stat-lbl hp">HP</span>
+          <div class="stat-bar-o"><div class="stat-bar-i hp" id="fp-c" style="width:0%"></div></div>
+          <span class="stat-val" id="fp-cv">—</span>
+          <span class="stat-hint">COMPLETION</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl atk">ATK</span>
+          <div class="stat-bar-o"><div class="stat-bar-i atk" id="fp-e" style="width:0%"></div></div>
+          <span class="stat-val" id="fp-ev">—</span>
+          <span class="stat-hint">EFFICIENCY</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl def">DEF</span>
+          <div class="stat-bar-o"><div class="stat-bar-i def" id="fp-r" style="width:0%"></div></div>
+          <span class="stat-val" id="fp-rv">—</span>
+          <span class="stat-hint">RECOVERY</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl sp">SP.ATK</span>
+          <div class="stat-bar-o"><div class="stat-bar-i sp" id="fp-p" style="width:0%"></div></div>
+          <span class="stat-val" id="fp-pv">—</span>
+          <span class="stat-hint">PATH QUAL</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl spd">SPEED</span>
+          <div class="stat-bar-o"><div class="stat-bar-i spd" id="fp-t" style="width:0%"></div></div>
+          <span class="stat-val" id="fp-tv">—</span>
+          <span class="stat-hint">AVG TURNS (inv)</span>
+        </div>
+
+        <!-- Level conquest grid -->
+        <div class="conquest-lbl">level conquest</div>
+        <div class="conquest-grid" id="conquest-grid">
+          <span style="font-size:6px;color:var(--dim)">loading…</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- LEADERBOARD + LEVEL BREAKDOWN -->
+  <div class="two-col">
+    <div>
+      <div class="sec-title">model leaderboard</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>model</th><th>runs</th>
+            <th>avg</th><th>best</th>
+            <th>stars</th><th>turns</th><th>timeouts</th>
+          </tr></thead>
+          <tbody id="model-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="sec-title">level breakdown</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>diff</th><th>level</th><th>runs</th>
+            <th>avg</th><th>best</th>
+            <th>pass%</th><th>turns</th>
+          </tr></thead>
+          <tbody id="level-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RUN HISTORY -->
+  <div class="sec-title">run history</div>
+
+  <!-- Filter bar -->
+  <div class="hist-bar">
+    <div class="hist-bar-group">
+      <label>model</label>
+      <select id="hf-model" onchange="histLoad(true)">
+        <option value="">all models</option>
+      </select>
+    </div>
+    <div class="hist-bar-group">
+      <label>level</label>
+      <select id="hf-level" onchange="histLoad(true)">
+        <option value="">all levels</option>
+      </select>
+    </div>
+    <div class="hist-bar-group">
+      <label>min ★</label>
+      <select id="hf-stars" onchange="histLoad(true)">
+        <option value="-1">any</option>
+        <option value="1">★+</option>
+        <option value="3">★★★+</option>
+        <option value="5">★★★★★</option>
+      </select>
+    </div>
+    <button class="hist-btn" onclick="histLoad(true)">⟳ REFRESH</button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>id</th><th>time</th><th>model</th><th>level</th>
+        <th>score</th><th>stars</th>
+        <th>turns</th><th>tools</th><th>dur</th>
+      </tr></thead>
+      <tbody id="runs-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="hist-pager">
+    <span id="hist-count">—</span>
+    <button id="hist-prev" onclick="histPage(-1)" disabled>◀ PREV</button>
+    <span id="hist-page">1</span>
+    <button id="hist-next" onclick="histPage(+1)" disabled>NEXT ▶</button>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Run detail drawer -->
+<div class="run-drawer" id="run-drawer">
+  <div class="rd-hdr">
+    <span class="rd-id" id="rd-id">—</span>
+    <span class="rd-meta" id="rd-meta">—</span>
+    <button class="rd-close" onclick="closeDrawer()">✕ CLOSE</button>
+  </div>
+  <div class="rd-score-row">
+    <div>
+      <div class="rd-score-big" id="rd-score">—</div>
+      <div class="rd-score-stars" id="rd-stars"></div>
+    </div>
+    <div class="rd-dims" id="rd-dims"></div>
+  </div>
+  <div class="rd-badges" id="rd-badges"></div>
+  <div class="rd-events" id="rd-events">
+    <div class="rd-empty">Select a run to view its log</div>
+  </div>
+</div>
+
+<script>
+let allModels = [];
+let allLevels = [];
+
+// History pagination state
+let _histOffset = 0;
+const HIST_PAGE = 30;
+
+async function load() {
+  const [sum, models, levels, meta] = await Promise.all([
+    fetch('/api/stats/summary').then(r => r.json()).catch(() => ({})),
+    fetch('/api/stats/models').then(r => r.json()).catch(() => []),
+    fetch('/api/stats/levels').then(r => r.json()).catch(() => []),
+    fetch('/api/runs/meta').then(r => r.json()).catch(() => ({models:[], levels:[]})),
+  ]);
+  allModels = models;
+  allLevels = levels;
+  renderSummary(sum);
+  renderModelTable(models);
+  renderLevelTable(levels);
+  populateModelSelect(models);
+  populateHistFilters(meta);
+  histLoad(true);
+  if (models.length > 0) loadAndRenderDex(models[0].model, 0);
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function populateHistFilters(meta) {
+  const mSel = document.getElementById('hf-model');
+  const lSel = document.getElementById('hf-level');
+  (meta.models || []).forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    mSel.appendChild(o);
+  });
+  (meta.levels || []).forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.level_id;
+    o.textContent = '★'.repeat(l.difficulty || 0) + ' ' + (l.level_name || l.level_id);
+    lSel.appendChild(o);
+  });
+}
+
+async function histLoad(reset) {
+  if (reset) _histOffset = 0;
+  const model    = document.getElementById('hf-model')?.value || '';
+  const level_id = document.getElementById('hf-level')?.value || '';
+  const stars    = document.getElementById('hf-stars')?.value || '-1';
+  const qs = new URLSearchParams({
+    limit: HIST_PAGE, offset: _histOffset,
+    model, level_id, min_stars: stars,
+  });
+  try {
+    const data = await fetch('/api/runs?' + qs).then(r => r.json());
+    const runs  = data.runs  || data || [];  // back-compat if server returns plain array
+    const total = data.total ?? runs.length;
+    renderRunsTable(runs);
+    updateHistPager(total);
+  } catch(e) {
+    document.getElementById('runs-body').innerHTML =
+      '<tr><td colspan="9" class="empty">load failed</td></tr>';
+  }
+}
+
+function histPage(dir) {
+  _histOffset = Math.max(0, _histOffset + dir * HIST_PAGE);
+  histLoad(false);
+}
+
+function updateHistPager(total) {
+  const page  = Math.floor(_histOffset / HIST_PAGE) + 1;
+  const pages = Math.max(1, Math.ceil(total / HIST_PAGE));
+  document.getElementById('hist-count').textContent = `${total} runs`;
+  document.getElementById('hist-page').textContent  = `${page} / ${pages}`;
+  document.getElementById('hist-prev').disabled = _histOffset <= 0;
+  document.getElementById('hist-next').disabled = _histOffset + HIST_PAGE >= total;
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────
+function renderSummary(s) {
+  setText('s-runs',   s.total_runs    ?? '0');
+  setText('s-models', s.total_models  ?? '0');
+  setText('s-levels', s.total_levels  ?? '0');
+  setText('s-avg',    (s.avg_score    ?? 0) + '');
+  setText('s-best',   (s.best_score   ?? 0) + '');
+  setText('s-stars',  (s.total_stars  ?? 0) + ' ★');
+}
+
+// ── Model leaderboard ──────────────────────────────────────────────────────
+function renderModelTable(models) {
+  const tbody = document.getElementById('model-body');
+  if (!models.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">no runs yet — start a benchmark!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = models.map((m, i) => {
+    const score  = m.avg_score || 0;
+    const barCol = score >= 70 ? '#39ff14' : score >= 40 ? '#ffd700' : '#ff5959';
+    const starsHtml = starHtml(m.total_stars || 0, false);
+    return `<tr onclick="loadAndRenderDex(${JSON.stringify(m.model)}, ${i})" style="cursor:pointer">
+      <td class="td-rank">#${String(i+1).padStart(3,'0')}</td>
+      <td class="run-model">${esc(m.model)}</td>
+      <td>${m.run_count}</td>
+      <td>
+        <div class="td-score">${score}</div>
+        <div class="bar-cell"><div class="mini-bar-o">
+          <div class="mini-bar-i" style="width:${score}%;background:${barCol}"></div>
+        </div></div>
+      </td>
+      <td class="td-score">${m.best_score}</td>
+      <td style="font-size:8px">${starsHtml}</td>
+      <td class="td-dim">${m.avg_turns ?? '—'}</td>
+      <td style="color:${m.timeouts > 0 ? 'var(--red)' : 'var(--dim)'}">${m.timeouts ?? 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Level breakdown ────────────────────────────────────────────────────────
+function renderLevelTable(levels) {
+  const tbody = document.getElementById('level-body');
+  if (!levels.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">no runs yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = levels.map(l => {
+    const pr   = l.pass_rate != null ? Math.round(l.pass_rate * 100) : null;
+    const pCls = pr == null ? '' : pr >= 80 ? 'good' : pr >= 50 ? 'mid' : 'bad';
+    const d    = l.difficulty || 0;
+    const pips = Array.from({length:5}, (_,i) =>
+      `<span class="diff-pip ${i < d ? 'diff-on' : 'diff-off'}"></span>`
+    ).join('');
+    return `<tr>
+      <td>${pips}</td>
+      <td class="run-level">${esc(l.level_name || l.level_id)}</td>
+      <td>${l.run_count}</td>
+      <td class="td-score">${l.avg_score}</td>
+      <td class="td-score">${l.best_score}</td>
+      <td class="pass-rate ${pCls}">${pr != null ? pr + '%' : '—'}</td>
+      <td class="td-dim">${l.avg_turns ?? '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Run History table ──────────────────────────────────────────────────────
+function renderRunsTable(runs) {
+  const tbody = document.getElementById('runs-body');
+  if (!runs.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">no runs found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = runs.map(r => {
+    const score      = r.score_total || 0;
+    const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--y1)' : 'var(--red)';
+    const dt         = new Date(r.ts * 1000);
+    const timeStr    = dt.toISOString().replace('T', ' ').slice(0, 16);
+    const toCls      = r.timed_out ? 'timed-out' : '';
+    return `<tr class="${toCls}" onclick="openDrawer(${JSON.stringify(r.id)})" style="cursor:pointer">
+      <td><span class="run-id">${esc(r.id)}</span></td>
+      <td class="td-dim">${timeStr}</td>
+      <td class="run-model" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(r.model)}</td>
+      <td class="run-level">${esc(r.level_id)}</td>
+      <td style="color:${scoreColor};font-size:8px">${score.toFixed(1)}</td>
+      <td style="font-size:8px">${starHtml(r.stars || 0)}</td>
+      <td class="td-dim">${r.turns ?? '—'}</td>
+      <td class="td-dim">${r.tool_calls_n ?? '—'}</td>
+      <td class="td-dim">${(r.duration_s || 0).toFixed(1)}s</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Run detail drawer ──────────────────────────────────────────────────────
+async function openDrawer(runId) {
+  const drawer = document.getElementById('run-drawer');
+  drawer.classList.add('open');
+
+  // Reset
+  document.getElementById('rd-id').textContent    = runId;
+  document.getElementById('rd-meta').textContent  = 'loading…';
+  document.getElementById('rd-score').textContent = '—';
+  document.getElementById('rd-stars').innerHTML   = '';
+  document.getElementById('rd-dims').innerHTML    = '';
+  document.getElementById('rd-badges').innerHTML  = '';
+  document.getElementById('rd-events').innerHTML  = '<div class="rd-empty">loading…</div>';
+
+  try {
+    const data = await fetch(`/api/runs/${encodeURIComponent(runId)}`).then(r => r.json());
+    if (data.error) {
+      document.getElementById('rd-meta').textContent = data.error;
+      return;
+    }
+    const run    = data.run;
+    const events = data.events || [];
+
+    // Header
+    const dt = new Date(run.ts * 1000).toISOString().replace('T', ' ').slice(0, 16);
+    document.getElementById('rd-meta').textContent =
+      `${run.model} · ${run.level_id} · ${dt}`;
+
+    // Score
+    const score = run.score_total || 0;
+    const scoreEl = document.getElementById('rd-score');
+    scoreEl.textContent = score.toFixed(1);
+    scoreEl.style.color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--y1)' : 'var(--red)';
+    document.getElementById('rd-stars').innerHTML = starHtml(run.stars || 0, true);
+
+    // Score dimensions
+    const dims = [
+      { label: 'COMPLETION', val: run.score_completion || 0, color: 'var(--s-hp)' },
+      { label: 'EFFICIENCY', val: run.score_efficiency || 0, color: 'var(--s-atk)' },
+      { label: 'RECOVERY',   val: run.score_self_correction || 0, color: 'var(--s-def)' },
+      { label: 'PATH QUAL',  val: run.score_path_quality || 0, color: 'var(--s-sp)' },
+    ];
+    document.getElementById('rd-dims').innerHTML = dims.map(d =>
+      `<div class="rd-dim-row">
+        <span class="rd-dim-lbl">${d.label}</span>
+        <div class="rd-dim-bar-o"><div class="rd-dim-bar-i" style="width:${d.val}%;background:${d.color}"></div></div>
+        <span class="rd-dim-val">${d.val.toFixed(0)}</span>
+      </div>`
+    ).join('');
+
+    // Badges
+    const badges = [];
+    badges.push(`<span class="rd-badge">${run.mode || 'unguided'}</span>`);
+    badges.push(`<span class="rd-badge">${run.turns} turns</span>`);
+    badges.push(`<span class="rd-badge">${run.tool_calls_n} tool calls</span>`);
+    badges.push(`<span class="rd-badge">${(run.duration_s||0).toFixed(1)}s</span>`);
+    badges.push(`<span class="rd-badge">${run.criteria_passed}/${run.criteria_total} criteria</span>`);
+    if (run.timed_out) badges.push('<span class="rd-badge warn">TIMED OUT</span>');
+    if ((run.penalty_retry || 0) > 0) badges.push(`<span class="rd-badge warn">retry penalty -${run.penalty_retry}</span>`);
+    document.getElementById('rd-badges').innerHTML = badges.join('');
+
+    // Events
+    renderDrawerEvents(events, data.log_found);
+  } catch(e) {
+    document.getElementById('rd-meta').textContent = 'load error: ' + e.message;
+  }
+}
+
+function renderDrawerEvents(events, logFound) {
+  const el = document.getElementById('rd-events');
+  if (!logFound) {
+    el.innerHTML = '<div class="rd-empty">agentlog not found on disk</div>';
+    return;
+  }
+  if (!events.length) {
+    el.innerHTML = '<div class="rd-empty">no events in log</div>';
+    return;
+  }
+
+  const parts = [];
+  events.forEach((ev, idx) => {
+    const type = ev.type || '?';
+    let cls = 'rd-ev';
+    let typeLabel = type.replace('_', ' ').toUpperCase();
+    let body = '';
+
+    if (type === 'message' || type === 'message_delta') {
+      const role = ev.role || '';
+      cls += role === 'assistant' ? ' msg-a' : ' msg-u';
+      typeLabel = role.toUpperCase() + (type === 'message_delta' ? ' DELTA' : '');
+      body = String(ev.content || ev.delta || '').slice(0, 600);
+    } else if (type === 'tool_call') {
+      cls += ' tool';
+      typeLabel = '⚡ ' + (ev.tool || '?').toUpperCase();
+      body = JSON.stringify(ev.args || {}, null, 2).slice(0, 400);
+    } else if (type === 'tool_result') {
+      cls += ' result';
+      typeLabel = `→ exit=${ev.exit_code ?? '?'}`;
+      body = String(ev.output || '').slice(0, 400);
+    } else if (type === 'session_start') {
+      cls += ' info';
+      body = `model: ${ev.model || '?'} · mode: ${ev.mode || '?'}`;
+    } else if (type === 'session_end') {
+      cls += ' info';
+      const sc = ev.score || {};
+      body = `score: ${(sc.total||0).toFixed(1)} · timed_out: ${ev.timed_out ? 'yes' : 'no'} · duration: ${(ev.duration_s||0).toFixed(1)}s`;
+    } else {
+      cls += ' info';
+      body = JSON.stringify(ev).slice(0, 200);
+    }
+
+    const needsExpand = body.length >= 398;
+    parts.push(
+      `<div class="${cls}">
+        <div class="rd-ev-type">${esc(typeLabel)}</div>
+        <div class="rd-ev-body" id="ev-body-${idx}">${esc(body)}${needsExpand ? '…' : ''}</div>
+        ${needsExpand ? `<span class="rd-ev-expand" onclick="expandEv(${idx})">▼ expand</span>` : ''}
+      </div>`
+    );
+  });
+
+  el.innerHTML = parts.join('');
+  // Store full event data for expansion
+  window._drawerEvents = events;
+}
+
+function expandEv(idx) {
+  const ev   = (window._drawerEvents || [])[idx];
+  const el   = document.getElementById('ev-body-' + idx);
+  if (!ev || !el) return;
+  let full = '';
+  if (ev.type === 'message' || ev.type === 'message_delta') {
+    full = String(ev.content || ev.delta || '');
+  } else if (ev.type === 'tool_call') {
+    full = JSON.stringify(ev.args || {}, null, 2);
+  } else if (ev.type === 'tool_result') {
+    full = String(ev.output || '');
+  } else {
+    full = JSON.stringify(ev, null, 2);
+  }
+  el.textContent = full;
+  el.classList.add('expanded');
+  el.nextElementSibling?.remove();
+}
+
+function closeDrawer() {
+  document.getElementById('run-drawer').classList.remove('open');
+}
+
+// ── DEX ENTRY ─────────────────────────────────────────────────────────────
+function populateModelSelect(models) {
+  const sel = document.getElementById('fp-sel');
+  sel.innerHTML = '<option value="">— pick a model —</option>' +
+    models.map((m, i) => `<option value="${i}">${esc(m.model)}</option>`).join('');
+  if (models.length) sel.value = '0';
+}
+
+function onModelSelect() {
+  const idx = parseInt(document.getElementById('fp-sel').value);
+  if (!isNaN(idx) && allModels[idx]) loadAndRenderDex(allModels[idx].model, idx);
+}
+
+async function loadAndRenderDex(modelName, idx) {
+  // Sync dropdown
+  const sel = document.getElementById('fp-sel');
+  if (sel && !isNaN(idx)) sel.value = String(idx);
+
+  // Fire scan animation
+  const entry = document.getElementById('dex-entry');
+  entry.classList.remove('scanning');
+  void entry.offsetWidth;
+  entry.classList.add('scanning');
+  setTimeout(() => entry.classList.remove('scanning'), 600);
+
+  // Load detail from the dedicated endpoint
+  let detail;
+  try {
+    detail = await fetch('/api/stats/model-detail/' + encodeURIComponent(modelName))
+      .then(r => r.json());
+  } catch(e) {
+    // Fallback to allModels data if endpoint not available
+    detail = { model: modelName, overall: allModels[idx] || {}, per_level: [] };
+  }
+
+  renderDexEntry(detail, idx);
+}
+
+function renderDexEntry(detail, idx) {
+  const ov = detail.overall || {};
+  const modelName = detail.model || ov.model || '?';
+
+  // Header
+  setText('dex-num', '#' + String((idx ?? 0) + 1).padStart(3,'0'));
+  setText('dex-meta',
+    `runs: ${ov.run_count ?? '—'}  avg: ${ov.avg_score ?? '—'}  best: ${ov.best_score ?? '—'}`
+  );
+
+  // Screen panel
+  setText('fp-name',  modelName);
+  setText('fp-score', ov.avg_score ?? '—');
+
+  // Stars row — based on total_stars accumulated across all runs
+  const totalStars = ov.total_stars ?? 0;
+  const starsEl = document.getElementById('fp-stars-row');
+  // Show up to 5 filled stars proportionally to how many earned (capped at 25 possible if 5 runs × 5 stars)
+  const maxPossible = Math.max(25, totalStars);
+  const filled = Math.round((totalStars / maxPossible) * 5);
+  starsEl.innerHTML = Array.from({length:5}, (_,i) =>
+    `<span class="${i < filled ? 'ds-on' : 'ds-off'}">★</span>`
+  ).join('');
+
+  // Stat bars
+  const c = ov.avg_completion      ?? 0;
+  const e = ov.avg_efficiency      ?? 0;
+  const r = ov.avg_self_correction ?? 0;
+  const p = ov.avg_path_quality    ?? 0;
+  const avgT = ov.avg_turns ?? 20;
+  const speed = Math.max(0, Math.round((1 - Math.min(avgT, 30) / 30) * 100));
+
+  setBar('fp-c', c); setText('fp-cv', c + '%');
+  setBar('fp-e', e); setText('fp-ev', e + '%');
+  setBar('fp-r', r); setText('fp-rv', r + '%');
+  setBar('fp-p', p); setText('fp-pv', p + '%');
+  setBar('fp-t', speed); setText('fp-tv', speed);
+
+  // Level conquest grid
+  renderConquestGrid(detail.per_level || []);
+
+  // Sprite
+  renderSprite(modelName, ov.avg_score ?? 0);
+}
+
+function renderConquestGrid(perLevel) {
+  const grid = document.getElementById('conquest-grid');
+  if (!perLevel.length) {
+    grid.innerHTML = '<span style="font-size:6px;color:var(--dim)">no levels attempted yet</span>';
+    return;
+  }
+
+  // Also show unplayed levels from allLevels so we can see "uncaught" entries
+  const played = new Map(perLevel.map(l => [l.level_id, l]));
+  const allIds = new Set([
+    ...allLevels.map(l => l.level_id),
+    ...perLevel.map(l => l.level_id),
+  ]);
+
+  grid.innerHTML = [...allIds].map(id => {
+    const l = played.get(id);
+    const lvlMeta = allLevels.find(x => x.level_id === id);
+    const shortId = id.replace(/^l\d*-?/, '').slice(0, 6) || id.slice(0, 6);
+    if (!l) {
+      // Not attempted
+      return `<div class="cq-cell" title="${esc(id)} — not attempted">
+        <span class="cq-cell-id">??</span>
+        <div class="cq-stars">${'<span class="cqs-off">★</span>'.repeat(5)}</div>
+        <span class="cq-score">—</span>
+      </div>`;
+    }
+    const best = l.best_stars ?? 0;
+    const goldClass = best >= 5 ? 'gold' : '';
+    const starsHtml = Array.from({length:5}, (_,i) =>
+      `<span class="${i < best ? 'cqs-on' : 'cqs-off'}">★</span>`
+    ).join('');
+    return `<div class="cq-cell cleared ${goldClass}" title="${esc(l.level_name || id)}\nbest: ${l.best_score} pts | ${l.run_count} runs">
+      <span class="cq-cell-id cleared">${esc(shortId)}</span>
+      <div class="cq-stars">${starsHtml}</div>
+      <span class="cq-score cleared">${l.best_score ?? '?'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Pixel sprite generator ─────────────────────────────────────────────────
+function renderSprite(modelName, score) {
+  const g = document.getElementById('sprite-pixels');
+  if (!g) return;
+
+  let seed = 0;
+  for (let i = 0; i < modelName.length; i++) {
+    seed = (seed * 31 + modelName.charCodeAt(i)) >>> 0;
+  }
+  function rng() {
+    seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+    return (seed >>> 0) / 4294967295;
+  }
+
+  // Colour tiers: green(high) → gold(mid) → red(low) — all within app palette
+  const cols = score >= 70
+    ? ['#39ff14', '#1a8a08', '#0a3a02']
+    : score >= 40
+    ? ['#ffd700', '#7a6000', '#3a2c00']
+    : ['#ff5959', '#880000', '#3a0000'];
+
+  const SZ = 8; const PX = 10;
+  const cells = [];
+  for (let y = 0; y < SZ; y++) {
+    for (let x = 0; x < Math.ceil(SZ / 2); x++) {
+      const v = rng();
+      const fill = v > 0.62 ? cols[0] : v > 0.38 ? cols[1] : null;
+      if (fill) {
+        cells.push({x, y, fill});
+        if (x !== SZ - 1 - x) cells.push({x: SZ - 1 - x, y, fill});
+      }
+    }
+  }
+  const off = (96 - SZ * PX) / 2;
+  g.innerHTML = cells.map(c =>
+    `<rect x="${off + c.x*PX}" y="${off + c.y*PX}" width="${PX-1}" height="${PX-1}" fill="${c.fill}" rx="1"/>`
+  ).join('');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function starHtml(n, addOff = true) {
+  const MAX = 5;
+  return '<span class="s-on">' + '★'.repeat(Math.min(n, MAX)) + '</span>'
+       + (addOff ? '<span class="s-off">' + '☆'.repeat(Math.max(0, MAX - n)) + '</span>' : '');
+}
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function setBar(id, pct) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+load();
+
+// ── Floating BenchBot-AI Chat ─────────────────────────────────────────────────
+let cfOpen    = false;
+let cfBusy    = false;
+let cfHistory = [];
+
+function toggleCF() {
+  cfOpen = !cfOpen;
+  document.getElementById('cf-panel').classList.toggle('open', cfOpen);
+  document.getElementById('cf-fab').classList.toggle('active', cfOpen);
+  if (cfOpen) {
+    loadCFModel();
+    document.getElementById('cf-input').focus();
+  }
+}
+
+function loadCFModel() {
+  fetch('/api/credentials').then(r => r.json()).then(d => {
+    const m = d.model || d.providers?.[0]?.model || 'not configured';
+    document.getElementById('cf-model-lbl').textContent = m;
+  }).catch(() => {});
+}
+
+async function sendCF() {
+  if (cfBusy) return;
+  const input = document.getElementById('cf-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  cfHistory.push({ role: 'user', content: text });
+  appendCF('user', text);
+
+  cfBusy = true;
+  document.getElementById('cf-send-btn').disabled = true;
+  const aEl    = appendCF('assistant', '');
+  const bodyEl = aEl.querySelector('.cf-body');
+  const cursor = document.createElement('span');
+  cursor.className = 'cf-cursor';
+  bodyEl.appendChild(cursor);
+
+  let full = '';
+  try {
+    const res = await fetch('/api/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ messages: cfHistory, page: 'analytics' }),
+    });
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') break;
+        try {
+          const ev = JSON.parse(payload);
+          if (ev.error) { bodyEl.textContent = 'Error: ' + ev.error; aEl.classList.add('error'); break; }
+          if (ev.delta) {
+            full += ev.delta;
+            bodyEl.textContent = full;
+            bodyEl.appendChild(cursor);
+            const msgs = document.getElementById('cf-msgs');
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    bodyEl.textContent = 'Error: ' + e.message;
+    aEl.classList.add('error');
+  } finally {
+    cursor.remove();
+    cfHistory.push({ role: 'assistant', content: full });
+    cfBusy = false;
+    document.getElementById('cf-send-btn').disabled = false;
+    document.getElementById('cf-input').focus();
+  }
+}
+
+function appendCF(role, text) {
+  const msgs = document.getElementById('cf-msgs');
+  const div  = document.createElement('div');
+  div.className = 'cf-msg ' + role;
+  div.innerHTML = `
+    <span class="cf-role ${role}">${role === 'user' ? 'YOU' : 'BENCHBOT-AI'}</span>
+    <div class="cf-body">${esc(text)}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+</script>
+
+<!-- BENCHBOT-AI FAB + Float -->
+<button class="chat-fab" id="cf-fab" onclick="toggleCF()">🤖 ASK AI</button>
+<div class="chat-float" id="cf-panel">
+  <div class="cf-hdr">
+    <span class="cf-title">BENCHBOT-AI</span>
+    <span class="cf-model" id="cf-model-lbl">—</span>
+    <button class="cf-close" onclick="toggleCF()">✕</button>
+  </div>
+  <div class="cf-ctx">◆ model rankings · level stats · trends · comparisons</div>
+  <div class="cf-msgs" id="cf-msgs">
+    <div class="cf-msg assistant">
+      <span class="cf-role assistant">BENCHBOT-AI</span>
+      <div class="cf-body">Hallo! Frag mich über Benchmark-Ergebnisse, Modell-Performance, oder warum ein Run gefailed ist.</div>
+    </div>
+  </div>
+  <div class="cf-input-wrap">
+    <textarea class="cf-textarea" id="cf-input"
+      placeholder="Was war der beste Run auf Level 3?"
+      rows="2"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCF();}"></textarea>
+    <button class="cf-send" id="cf-send-btn" onclick="sendCF()">▶</button>
+  </div>
+</div>
+
+</body>
+</html>

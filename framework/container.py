@@ -14,6 +14,7 @@ import logging
 import os
 import tarfile
 import time
+import uuid
 from contextlib import contextmanager
 from typing import Any, Generator
 
@@ -68,20 +69,32 @@ class LevelContainer:
         pull_policy = self._fw.get("pull_policy", "if_not_present")
         self._ensure_image(image, pull_policy)
 
-        container_name = f"benchb0t-{self.level_id}-{int(time.time())}"
+        # Use a short UUID suffix so parallel runs of the same level never
+        # collide on container name, even when they start within the same second.
+        container_name = f"benchb0t-{self.level_id}-{uuid.uuid4().hex[:8]}"
         env = self._resolve_env(self._cfg.get("env", {}))
 
         # Publish preview port if the level declares one.
         # preview_cfg comes from the top-level "preview:" key in the level YAML,
         # which is passed into level_cfg by the runner.
+        #
+        # IMPORTANT — use None as host port so Docker auto-assigns a free
+        # ephemeral port instead of fixing host:3000.  This prevents "port
+        # already allocated" collisions when multiple levels run in parallel
+        # or when a previous level's container hasn't fully released its port.
+        #
+        # The scoring checks always run *inside* the container via exec(), so
+        # they always reach localhost:<container_port> directly.  Only the
+        # dashboard preview iframe needs the real host port — we store it in
+        # self.host_preview_port after Docker assigns it.
         preview_port = self._cfg.get("preview_port")
-        ports: dict[str, int] | None = None
+        ports: dict | None = None
+        self.host_preview_port: int | None = None   # set after container starts
         if preview_port:
             port_int = int(preview_port)
-            # Map host port → container port (same number for simplicity).
-            # docker-py format: {"container_port/tcp": host_port}
-            ports = {f"{port_int}/tcp": port_int}
-            logger.info("Publishing port %d → host:%d for level preview", port_int, port_int)
+            # None → Docker picks a free ephemeral port on the host.
+            ports = {f"{port_int}/tcp": None}
+            logger.info("Publishing port %d → host:auto for level preview", port_int)
 
         # IMPORTANT: do NOT pass network_mode when publishing ports.
         # Passing network_mode="bridge" alongside ports= silently drops the
@@ -118,14 +131,26 @@ class LevelContainer:
 
         self._wait_for_running()
 
-        # Log the actual port bindings Docker assigned (for diagnostics)
+        # Read the actual host port Docker assigned and cache it.
+        # self._container.ports format:
+        #   {"3000/tcp": [{"HostIp": "0.0.0.0", "HostPort": "49312"}]}
         if ports:
             try:
                 self._container.reload()
-                actual = self._container.ports
-                logger.info("Actual port bindings: %s", actual)
-            except Exception:
-                pass
+                bindings = self._container.ports
+                logger.info("Actual port bindings: %s", bindings)
+                for binding_list in bindings.values():
+                    if binding_list:
+                        self.host_preview_port = int(binding_list[0]["HostPort"])
+                        break
+                if self.host_preview_port:
+                    logger.info(
+                        "Preview available at host port %d (container port %s)",
+                        self.host_preview_port,
+                        preview_port,
+                    )
+            except Exception as exc:
+                logger.warning("Could not read port bindings: %s", exc)
 
         # Install declared packages before the setup script runs
         self._install_packages(self._cfg.get("packages", {}))

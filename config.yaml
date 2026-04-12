@@ -15,9 +15,9 @@ scoring:
     self_correction: 0.20
     path_quality:    0.15
   penalties:
-    extra_tool_call: -0.5   # per call beyond efficiency_target
-    backtrack:       -1.0   # per detected backtrack step
-    timeout:         -5.0   # flat penalty on timeout
+    extra_tool_call: 0.5    # per call beyond efficiency_target
+    backtrack:       1.0    # per detected backtrack step
+    timeout:         5.0    # flat penalty on timeout
 
 container:
   default_cpu_limit:    "2"     # Docker CPU quota (e.g. "2" = 2 cores)

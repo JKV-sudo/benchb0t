@@ -1,0 +1,86 @@
+---
+# benchb0t — one-command setup
+#
+# Usage
+# ─────
+#   docker compose up           # start dashboard + ollama
+#   docker compose up -d        # detached
+#   docker compose down -v      # stop + wipe volumes
+#
+# Then open: http://localhost:7860
+#
+# To run a benchmark from outside the container:
+#   docker compose exec benchbot benchbot run \
+#     --level levels/l1-single-file.yaml \
+#     --harness harnesses/hermes.yaml \
+#     --no-prompt
+#
+# Environment
+# ───────────
+# Copy .env.example → .env and set your values.
+# The compose file reads from .env automatically.
+
+services:
+
+  # ── Live dashboard ─────────────────────────────────────────────────────────
+  benchbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: benchbot-dashboard
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    volumes:
+      # Mount the project so levels / harnesses / runs are live-editable
+      - .:/app
+      # Give the runner access to the Docker socket so it can spawn level containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      BENCHBOT_BASE_URL:  ${BENCHBOT_BASE_URL:-http://ollama:11434/v1}
+      BENCHBOT_API_KEY:   ${BENCHBOT_API_KEY:-ollama}
+      BENCHBOT_MODEL:     ${BENCHBOT_MODEL:-llama3}
+    env_file:
+      - path: .env
+        required: false
+    command: benchbot dash --host 0.0.0.0 --port 7860
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - benchbot-net
+
+  # ── Local LLM backend (Ollama) ─────────────────────────────────────────────
+  # Remove this service if you use a remote API (OpenAI, vLLM, OpenRouter, etc.)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: benchbot-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - benchbot-net
+    # Uncomment to use GPU (requires nvidia-container-toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama-data:
+    driver: local
+
+networks:
+  benchbot-net:
+    driver: bridge

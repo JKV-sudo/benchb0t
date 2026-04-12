@@ -40,6 +40,12 @@ import yaml
 from dotenv import load_dotenv
 
 from framework.api import AgentAPI
+from framework.config import (
+    FrameworkConfig,
+    FrameworkConfigError,
+    LoadedFrameworkConfig,
+    load_framework_config,
+)
 from framework.container import LevelContainer, ContainerError
 from framework.recorder import Recorder
 from framework.scorer import Scorer
@@ -429,7 +435,7 @@ def run_agent_loop(
 def run_level(
     level_path: Path,
     harness_path: Path,
-    framework_cfg: dict[str, Any],
+    framework_cfg: LoadedFrameworkConfig,
     store: "Store | None" = None,
     mode: str = "unguided",
 ) -> dict[str, Any]:
@@ -444,10 +450,12 @@ def run_level(
         "unguided" gives only a minimal system prompt — the agent must figure
         out the approach itself.
     """
-    level_cfg   = yaml.safe_load(level_path.read_text())
+    cfg = framework_cfg.config
+    level_cfg = yaml.safe_load(level_path.read_text())
     harness_cfg = yaml.safe_load(harness_path.read_text())
     # Harness YAML can override mode: guided | unguided
     mode = harness_cfg.get("harness", {}).get("mode", mode)
+    task_cfg = cfg.agent.apply_task_defaults(level_cfg.get("task", {}))
 
     level_id     = level_cfg["level"]["id"]
     harness_name = harness_cfg["harness"]["name"]
@@ -456,22 +464,20 @@ def run_level(
     logger.info("🎮 Level: %s  │  Harness: %s  │  Mode: %s", level_id, harness_name, mode)
     logger.info("═══════════════════════════════════════════════")
 
-    runs_dir  = framework_cfg.get("framework", {}).get("runs_dir", "runs")
-    compress  = framework_cfg.get("recorder", {}).get("compress", False)
-    scoring_cfg = framework_cfg.get("scoring", {})
+    runs_dir = framework_cfg.runs_dir
+    compress = cfg.recorder.compress
+    scoring_cfg = cfg.scoring.model_dump(mode="python")
 
     recorder = Recorder(runs_dir, level_id, harness_name, compress=compress)
 
     api = AgentAPI.from_harness(
         harness_cfg.get("harness", {}),
-        defaults={
-            **framework_cfg.get("agent", {}),
-            "timeout_s": level_cfg.get("task", {}).get("timeout_s", 120),
-        },
+        defaults=cfg.agent.api_defaults(task_cfg),
     )
 
     timed_out = False
     score_summary: dict[str, Any] = {}
+    host_preview_port: int | None = None   # set inside try-block if container starts OK
     provider_slot = max(1, int(os.getenv("BENCHBOT_PROVIDER_SLOT", "1") or "1"))
     provider_label = os.getenv("BENCHBOT_PROVIDER_LABEL") or os.getenv("BENCHBOT_MODEL", "") or harness_name
     panel_id = f"p{provider_slot}--{level_id}"
@@ -495,22 +501,39 @@ def run_level(
             container_cfg["preview_port"] = preview_cfg["port"]
         container = LevelContainer(
             level_cfg=container_cfg,
-            framework_cfg=framework_cfg.get("container", {}),
+            framework_cfg=cfg.container.model_dump(mode="python"),
             level_id=level_id,
         )
 
         system_prompt = _resolve_system_prompt(level_cfg, mode)
         logger.info("System prompt mode=%s (%d chars)", mode, len(system_prompt))
 
+        # Forced-retry config (optional block in level YAML)
+        retry_cfg             = level_cfg.get("forced_retry", {})
+        retry_enabled         = bool(retry_cfg.get("enabled", False))
+        max_retries           = int(retry_cfg.get("max_retries", 2))
+        penalty_per_retry     = float(retry_cfg.get("penalty_per_retry", 10.0))
+        completion_threshold  = float(retry_cfg.get("completion_threshold", 0.5))
+
         with container.session():
             timed_out = not run_agent_loop(
                 api=api,
                 container=container,
                 recorder=recorder,
-                task_cfg=level_cfg.get("task", {}),
+                task_cfg=task_cfg,
                 tools_list=level_cfg.get("tools", []),
                 system_prompt=system_prompt,
             )
+
+            # Capture the dynamic host port Docker assigned (may be None for non-preview levels)
+            host_preview_port = container.host_preview_port
+
+            # Notify the dashboard of the real host port so the iframe uses it.
+            # This event is written after container.start() — the only point where
+            # Docker has assigned the ephemeral port.
+            if host_preview_port:
+                preview_path = level_cfg.get("preview", {}).get("path", "/")
+                recorder.record_preview_ready(host_preview_port, path=preview_path)
 
             # Score while the container is still alive (script checks need it)
             scorer = Scorer(level_cfg.get("evaluation", {}), scoring_cfg)
@@ -519,6 +542,46 @@ def run_level(
                 timed_out=timed_out,
                 container_exec=container.exec,
             )
+
+            # ── Forced-retry loop ─────────────────────────────────────────────
+            # If enabled and the agent did not meet the completion threshold,
+            # give it another attempt — each retry costs penalty_per_retry points.
+            retries_used = 0
+            if retry_enabled and max_retries > 0:
+                while (
+                    breakdown.completion < completion_threshold
+                    and retries_used < max_retries
+                ):
+                    retries_used += 1
+                    logger.warning(
+                        "🔁 Forced retry %d/%d — completion %.0f%% < threshold %.0f%%",
+                        retries_used, max_retries,
+                        breakdown.completion * 100,
+                        completion_threshold * 100,
+                    )
+                    # Re-run the agent loop (container state is preserved)
+                    timed_out = not run_agent_loop(
+                        api=api,
+                        container=container,
+                        recorder=recorder,
+                        task_cfg=task_cfg,
+                        tools_list=level_cfg.get("tools", []),
+                        system_prompt=system_prompt,
+                    )
+                    breakdown = scorer.score(
+                        tool_calls=recorder.tool_calls,
+                        timed_out=timed_out,
+                        container_exec=container.exec,
+                    )
+
+            # Apply accumulated retry penalty to the final breakdown
+            breakdown.penalty_retry = retries_used * penalty_per_retry
+            if retries_used:
+                logger.info(
+                    "Retry penalty applied: %d × %.1f = −%.1f pts",
+                    retries_used, penalty_per_retry, breakdown.penalty_retry,
+                )
+
             score_summary = breakdown.summary()
 
     except ContainerError as exc:
@@ -532,21 +595,24 @@ def run_level(
 
     level_meta = level_cfg.get("level", {})
     result = {
-        "run_id":      recorder.run_id,
-        "ts":          recorder._started,
-        "level_id":    level_id,
-        "level_name":  level_meta.get("name", level_id),
-        "difficulty":  level_meta.get("difficulty", 1),
-        "harness":     harness_name,
-        "mode":        mode,
-        "model":       os.getenv("BENCHBOT_MODEL", ""),
-        "base_url":    os.getenv("BENCHBOT_BASE_URL", ""),
-        "log_path":    str(recorder.path),
-        "timed_out":   timed_out,
-        "score":       score_summary,
-        "turns":       recorder.turn_count,
-        "tool_calls_n": len(recorder.tool_calls),
-        "duration_s":  round(time.time() - recorder._started, 2),
+        "run_id":             recorder.run_id,
+        "ts":                 recorder._started,
+        "level_id":           level_id,
+        "level_name":         level_meta.get("name", level_id),
+        "difficulty":         level_meta.get("difficulty", 1),
+        "harness":            harness_name,
+        "mode":               mode,
+        "model":              os.getenv("BENCHBOT_MODEL", ""),
+        "base_url":           os.getenv("BENCHBOT_BASE_URL", ""),
+        "log_path":           str(recorder.path),
+        "timed_out":          timed_out,
+        "score":              score_summary,
+        "turns":              recorder.turn_count,
+        "tool_calls_n":       len(recorder.tool_calls),
+        "duration_s":         round(time.time() - recorder._started, 2),
+        # Dynamic host port Docker assigned — only set for preview levels.
+        # Consumers (dashboard iframe) use this; None means no preview.
+        "host_preview_port":  host_preview_port,
     }
 
     if store is not None:
@@ -616,7 +682,7 @@ def _normalize_url(url: str) -> str:
     return url
 
 
-def _boot_screen(framework_cfg: dict[str, Any]) -> None:
+def _boot_screen(framework_cfg: FrameworkConfig) -> None:
     """
     Interactive boot prompt shown once at startup.
 
@@ -629,7 +695,7 @@ def _boot_screen(framework_cfg: dict[str, Any]) -> None:
     print()
     print("╔══════════════════════════════════════════════════════╗")
     print("║   🎮  benchb0t  —  LLM Agent Benchmark Framework    ║")
-    print(f"║   v{framework_cfg.get('framework', {}).get('version', '?'):<51}║")
+    print(f"║   v{framework_cfg.framework.version:<51}║")
     print("╚══════════════════════════════════════════════════════╝")
     print()
 
@@ -685,48 +751,51 @@ def _boot_screen(framework_cfg: dict[str, Any]) -> None:
 def main() -> None:
     args = _build_parser().parse_args()
 
-    # Load .env if present (values can still be overridden by boot screen)
-    if args.env.exists():
-        load_dotenv(args.env)
-
-    # Load framework config
-    if not args.config.exists():
-        print(f"Config file not found: {args.config}", file=sys.stderr)
+    try:
+        framework_cfg = load_framework_config(args.config)
+    except (FileNotFoundError, FrameworkConfigError) as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(1)
-    framework_cfg = yaml.safe_load(args.config.read_text())
-    _configure_logging(framework_cfg.get("framework", {}).get("log_level", "INFO"))
+
+    env_path = framework_cfg.resolve_path(args.env)
+    if env_path.exists():
+        load_dotenv(env_path)
+
+    _configure_logging(framework_cfg.config.framework.log_level)
 
     # Interactive boot screen — always shown unless --no-prompt is passed
     if not getattr(args, "no_prompt", False):
-        _boot_screen(framework_cfg)
+        _boot_screen(framework_cfg.config)
 
-    if not args.harness.exists():
-        logger.error("Harness file not found: %s", args.harness)
+    harness_path = framework_cfg.resolve_path(args.harness)
+    if not harness_path.exists():
+        logger.error("Harness file not found: %s", harness_path)
         sys.exit(1)
 
     # Collect levels to run
     if args.all_levels:
-        levels = sorted(Path("levels").glob("*.yaml"))
+        levels = sorted(framework_cfg.levels_dir.glob("*.yaml"))
         if not levels:
-            logger.error("No level files found in ./levels/")
+            logger.error("No level files found in %s", framework_cfg.levels_dir)
             sys.exit(1)
     elif args.level:
-        if not args.level.exists():
-            logger.error("Level file not found: %s", args.level)
+        level_path = framework_cfg.resolve_path(args.level)
+        if not level_path.exists():
+            logger.error("Level file not found: %s", level_path)
             sys.exit(1)
-        levels = [args.level]
+        levels = [level_path]
     else:
         logger.error("Specify --level <file> or --all-levels")
         sys.exit(1)
 
-    # Persistent run store (benchb0t.db next to config.yaml)
-    db_path = args.config.parent / "benchb0t.db"
-    store = Store(db_path).init()
+    store = Store(framework_cfg.db_path).init()
 
     results = []
     for level_path in levels:
         result = run_level(
-            level_path, args.harness, framework_cfg,
+            level_path,
+            harness_path,
+            framework_cfg,
             store=store, mode=args.mode,
         )
         results.append(result)

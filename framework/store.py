@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
 
 # Strip SQL comments from schema — older SQLite/Python combos can
 # mishandle inline '--' comments inside executescript().
-_SCHEMA = """
+# Base schema — only columns that existed from the beginning.
+# New columns are added via _MIGRATIONS below so existing databases upgrade cleanly.
+_SCHEMA_BASE = """
 CREATE TABLE IF NOT EXISTS runs (
     id                    TEXT    PRIMARY KEY,
     ts                    REAL    NOT NULL,
@@ -63,6 +65,19 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_model    ON runs(model);
 CREATE INDEX IF NOT EXISTS idx_runs_level_id ON runs(level_id);
 CREATE INDEX IF NOT EXISTS idx_runs_ts       ON runs(ts);
+"""
+
+# Forward-only column migrations.  Add new entries here when the schema grows.
+# Each entry is a single ALTER TABLE statement; the column name is parsed from
+# position [4] ("ALTER TABLE runs ADD COLUMN <name> ...") to skip if present.
+_MIGRATIONS: list[str] = [
+    "ALTER TABLE runs ADD COLUMN mode TEXT NOT NULL DEFAULT 'unguided'",
+    "ALTER TABLE runs ADD COLUMN penalty_retry REAL NOT NULL DEFAULT 0",
+]
+
+# Indexes that depend on migrated columns — created after _MIGRATIONS run.
+_SCHEMA_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_runs_mode ON runs(mode);
 """
 
 
@@ -116,7 +131,29 @@ class Store:
                 self._conn.execute("PRAGMA journal_mode=MEMORY")
                 self._conn.execute("PRAGMA synchronous=OFF")
 
-            self._conn.executescript(_SCHEMA)
+            # 1. Create base table + pre-existing indexes (idempotent).
+            self._conn.executescript(_SCHEMA_BASE)
+
+            # 2. Run forward-only column migrations so indexes below can reference them.
+            existing_cols = {
+                row[1]
+                for row in self._conn.execute("PRAGMA table_info(runs)").fetchall()
+            }
+            for stmt in _MIGRATIONS:
+                try:
+                    col = stmt.split()[4]   # "ALTER TABLE runs ADD COLUMN <col> …"
+                except IndexError:
+                    col = None
+                if col and col in existing_cols:
+                    continue
+                try:
+                    self._conn.execute(stmt)
+                    logger.info("Migration applied: %s", stmt[:60])
+                except sqlite3.OperationalError as exc:
+                    logger.debug("Migration skipped (%s): %s", exc, stmt[:60])
+
+            # 3. Create indexes that depend on migrated columns (idempotent).
+            self._conn.executescript(_SCHEMA_INDEXES)
             self._conn.commit()
 
         logger.info("Store ready at %s", self._path)
@@ -140,6 +177,7 @@ class Store:
             "model":                 result.get("model", ""),
             "base_url":              result.get("base_url", ""),
             "harness":               result.get("harness", ""),
+            "mode":                  result.get("mode", "unguided"),
             "level_id":              result.get("level_id", ""),
             "level_name":            result.get("level_name", result.get("level_id", "")),
             "difficulty":            result.get("difficulty", 1),
@@ -151,6 +189,7 @@ class Store:
             "penalty_extra_calls":   pens.get("extra_calls", 0),
             "penalty_backtracks":    pens.get("backtracks", 0),
             "penalty_timeout":       pens.get("timeout", 0),
+            "penalty_retry":         pens.get("retry", 0),
             "duration_s":            result.get("duration_s", 0),
             "turns":                 result.get("turns", 0),
             "tool_calls_n":          result.get("tool_calls_n", 0),
@@ -163,15 +202,26 @@ class Store:
         try:
             with self._lock:
                 self._conn.execute(
-                    """INSERT OR REPLACE INTO runs VALUES (
-                        :id, :ts, :model, :base_url, :harness,
+                    """INSERT OR REPLACE INTO runs (
+                        id, ts, model, base_url, harness, mode,
+                        level_id, level_name, difficulty,
+                        score_total,
+                        score_completion, score_efficiency,
+                        score_self_correction, score_path_quality,
+                        penalty_extra_calls, penalty_backtracks, penalty_timeout,
+                        duration_s, turns, tool_calls_n, timed_out,
+                        criteria_passed, criteria_total, stars,
+                        penalty_retry
+                    ) VALUES (
+                        :id, :ts, :model, :base_url, :harness, :mode,
                         :level_id, :level_name, :difficulty,
                         :score_total,
                         :score_completion, :score_efficiency,
                         :score_self_correction, :score_path_quality,
                         :penalty_extra_calls, :penalty_backtracks, :penalty_timeout,
                         :duration_s, :turns, :tool_calls_n, :timed_out,
-                        :criteria_passed, :criteria_total, :stars
+                        :criteria_passed, :criteria_total, :stars,
+                        :penalty_retry
                     )""",
                     row,
                 )
@@ -246,7 +296,156 @@ class Store:
             ORDER BY difficulty, level_id
         """)
 
-    def get_runs(self, limit: int = 200) -> list[dict]:
+    def get_runs(
+        self,
+        limit: int = 200,
+        offset: int = 0,
+        model: str = "",
+        level_id: str = "",
+        min_stars: int | None = None,
+        timed_out: bool | None = None,
+    ) -> list[dict]:
+        """
+        Return runs newest-first with optional filters.
+
+        Parameters
+        ----------
+        limit / offset : pagination
+        model         : exact match (empty = all models)
+        level_id      : exact match (empty = all levels)
+        min_stars     : only runs with stars >= this value
+        timed_out     : True = only timeouts, False = no timeouts, None = both
+        """
+        clauses: list[str] = []
+        params:  list[Any] = []
+
+        if model:
+            clauses.append("model = ?")
+            params.append(model)
+        if level_id:
+            clauses.append("level_id = ?")
+            params.append(level_id)
+        if min_stars is not None:
+            clauses.append("stars >= ?")
+            params.append(min_stars)
+        if timed_out is not None:
+            clauses.append("timed_out = ?")
+            params.append(1 if timed_out else 0)
+
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params += [limit, offset]
         return self._query(
-            "SELECT * FROM runs ORDER BY ts DESC LIMIT ?", (limit,)
+            f"SELECT * FROM runs {where} ORDER BY ts DESC LIMIT ? OFFSET ?",
+            tuple(params),
         )
+
+    def get_run_count(
+        self,
+        model: str = "",
+        level_id: str = "",
+    ) -> int:
+        """Total number of runs matching the given filters (for pagination)."""
+        clauses: list[str] = []
+        params:  list[Any] = []
+        if model:
+            clauses.append("model = ?")
+            params.append(model)
+        if level_id:
+            clauses.append("level_id = ?")
+            params.append(level_id)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self._query(f"SELECT COUNT(*) AS n FROM runs {where}", tuple(params))
+        return rows[0]["n"] if rows else 0
+
+    def get_run_by_id(self, run_id: str) -> dict | None:
+        """
+        Fetch a single run by its primary key (8-char hex id).
+        Returns None if not found.
+        """
+        rows = self._query("SELECT * FROM runs WHERE id = ?", (run_id,))
+        return rows[0] if rows else None
+
+    def get_distinct_models(self) -> list[str]:
+        """Sorted list of all distinct model names in the DB."""
+        rows = self._query("SELECT DISTINCT model FROM runs ORDER BY model")
+        return [r["model"] for r in rows if r.get("model")]
+
+    def get_distinct_levels(self) -> list[dict]:
+        """Distinct levels (id + name) ordered by difficulty."""
+        rows = self._query(
+            "SELECT DISTINCT level_id, level_name, difficulty FROM runs ORDER BY difficulty, level_id"
+        )
+        return [
+            {"level_id": r["level_id"], "level_name": r["level_name"], "difficulty": r["difficulty"]}
+            for r in rows
+        ]
+
+    def get_model_detail(self, model: str) -> dict:
+        """
+        Per-level breakdown for one model.
+
+        Returns:
+          - overall stats (same shape as get_model_stats row)
+          - per_level list: each level with best score, best stars, run count, avg turns
+        Used by the analytics Dex entry to render the level-conquest grid.
+        """
+        overall = self._query(
+            """
+            SELECT
+                model,
+                COUNT(*)                               AS run_count,
+                ROUND(AVG(score_total),          1)    AS avg_score,
+                ROUND(MAX(score_total),          1)    AS best_score,
+                ROUND(AVG(score_completion),     1)    AS avg_completion,
+                ROUND(AVG(score_efficiency),     1)    AS avg_efficiency,
+                ROUND(AVG(score_self_correction),1)    AS avg_self_correction,
+                ROUND(AVG(score_path_quality),   1)    AS avg_path_quality,
+                COALESCE(SUM(stars),             0)    AS total_stars,
+                ROUND(AVG(turns),                1)    AS avg_turns,
+                ROUND(AVG(duration_s),           1)    AS avg_duration,
+                COALESCE(SUM(timed_out),         0)    AS timeouts
+            FROM runs WHERE model = ?
+            """,
+            (model,),
+        )
+        per_level = self._query(
+            """
+            SELECT
+                level_id, level_name, difficulty,
+                COUNT(*)                             AS run_count,
+                ROUND(MAX(score_total), 1)           AS best_score,
+                MAX(stars)                           AS best_stars,
+                ROUND(AVG(turns),       1)           AS avg_turns,
+                COALESCE(SUM(timed_out), 0)          AS timeouts
+            FROM runs WHERE model = ?
+            GROUP BY level_id
+            ORDER BY difficulty, level_id
+            """,
+            (model,),
+        )
+        return {
+            "model":     model,
+            "overall":   overall[0] if overall else {},
+            "per_level": per_level,
+        }
+
+    def get_mode_comparison(self) -> list[dict]:
+        """
+        Per-level, per-model comparison of guided vs unguided scores.
+        Returns rows with both scores side-by-side so the dashboard can
+        render a diff table: which models need hand-holding and which don't.
+        """
+        return self._query("""
+            SELECT
+                level_id,
+                model,
+                mode,
+                COUNT(*)                        AS run_count,
+                ROUND(AVG(score_total),    1)   AS avg_score,
+                ROUND(AVG(turns),          1)   AS avg_turns,
+                ROUND(AVG(tool_calls_n),   1)   AS avg_tools,
+                COALESCE(SUM(timed_out),   0)   AS timeouts
+            FROM runs
+            GROUP BY level_id, model, mode
+            ORDER BY level_id, model, mode
+        """)

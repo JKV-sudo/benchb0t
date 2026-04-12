@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>benchb0t · level builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0800; --panel:#100d00; --panel2:#151000;
+  --b1:#241e00; --b2:#3a3000; --b3:#4a3f00;
+  --y1:#ffd700; --y2:#ffb300; --y3:#ff8c00;
+  --ydk:#7a6000; --text:#ffe87a; --dim:#5a4a10; --dim2:#3a3000;
+  --green:#39ff14; --red:#ff3a3a;
+  --font:'Press Start 2P',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:10px;overflow:hidden}
+body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px)}
+
+/* HEADER */
+header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;height:52px;
+  display:flex;align-items:center;gap:14px;box-shadow:0 2px 20px rgba(255,215,0,.15);z-index:50;flex-shrink:0}
+.logo{color:var(--y1);font-size:13px;letter-spacing:3px;text-shadow:0 0 20px var(--y1)}
+.sep{color:var(--b3)}
+.nav-a{font-size:6px;color:var(--dim);letter-spacing:2px;text-decoration:none;
+  border:1px solid var(--dim);padding:3px 8px}
+.nav-a:hover{color:var(--y1);border-color:var(--y1)}
+.hdr-badge{font-size:8px;letter-spacing:2px;color:var(--y2)}
+
+/* ROOT SPLIT */
+.root{display:flex;height:calc(100vh - 52px)}
+.left{width:420px;flex-shrink:0;overflow-y:auto;border-right:2px solid var(--b1);
+  display:flex;flex-direction:column;gap:0}
+.left::-webkit-scrollbar{width:3px}
+.left::-webkit-scrollbar-thumb{background:var(--b2)}
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* SECTIONS */
+.section{border-bottom:2px solid var(--b1)}
+.sec-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;
+  background:var(--panel);user-select:none}
+.sec-hdr:hover{background:var(--panel2)}
+.sec-arr{font-size:8px;color:var(--ydk);transition:transform .15s}
+.sec-hdr.open .sec-arr{transform:rotate(90deg)}
+.sec-title{font-size:6px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.sec-body{padding:12px 14px;display:none;flex-direction:column;gap:8px}
+.sec-body.open{display:flex}
+
+/* FORM FIELDS */
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:6px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.field input,.field textarea,.field select{
+  background:var(--bg);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:7px;padding:7px 9px;outline:none;resize:vertical}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--y1)}
+.field select{cursor:pointer}
+.field select option{background:var(--panel)}
+.field textarea{min-height:72px;line-height:1.7;font-family:monospace;font-size:9px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.hint{font-size:5px;color:var(--dim2);letter-spacing:1px;margin-top:2px}
+
+/* pkg strip — show all three side by side */
+.pkg-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0}
+
+/* preset row — select + optional custom input */
+.preset-row{display:flex;flex-direction:column;gap:4px}
+.preset-row select,.preset-row input{width:100%;box-sizing:border-box}
+
+/* combobox hint */
+.field input[list]{padding-right:22px}
+
+/* DIFFICULTY STARS */
+.diff-row{display:flex;gap:6px;align-items:center}
+.diff-star{font-size:16px;color:var(--b3);cursor:pointer;transition:color .1s;user-select:none}
+.diff-star.on{color:var(--y1);text-shadow:0 0 10px rgba(255,215,0,.5)}
+.diff-star:hover{color:var(--y2)}
+
+/* TOOL CHECKBOXES */
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tool-chk{display:flex;align-items:center;gap:7px;cursor:pointer;
+  border:2px solid var(--b2);padding:6px 8px}
+.tool-chk:hover{border-color:var(--b3)}
+.tool-chk.checked{border-color:var(--ydk)}
+.tool-chk input{accent-color:var(--y1);width:12px;height:12px;cursor:pointer}
+.tool-chk span{font-size:6px;color:var(--dim);letter-spacing:1px;font-family:monospace}
+.tool-chk.checked span{color:var(--y2)}
+
+/* CRITERIA */
+.criteria-list{display:flex;flex-direction:column;gap:8px}
+.crit-card{border:2px solid var(--b2);background:var(--panel2)}
+.crit-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 9px;border-bottom:1px solid var(--b1);cursor:pointer}
+.crit-hdr:hover{background:var(--panel)}
+.crit-label{font-size:6px;color:var(--dim);letter-spacing:1px}
+.crit-del{font-size:9px;color:var(--red);cursor:pointer;padding:0 4px}
+.crit-del:hover{color:#ff7a7a}
+.crit-body{padding:9px;display:flex;flex-direction:column;gap:7px}
+
+.btn-add{
+  background:transparent;border:2px solid var(--b2);color:var(--dim);
+  font-family:var(--font);font-size:6px;letter-spacing:2px;padding:8px;
+  cursor:pointer;width:100%;text-align:center;transition:border-color .15s,color .15s}
+.btn-add:hover{border-color:var(--y2);color:var(--y2)}
+
+/* LOAD BAR */
+.load-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;
+  background:var(--panel2);border-bottom:2px solid var(--b1);flex-shrink:0}
+.load-bar select{flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:7px;padding:6px 8px;outline:none;cursor:pointer}
+.load-bar select:focus{border-color:var(--y1)}
+.load-bar select option{background:var(--panel)}
+.btn-load{padding:6px 12px;font-family:var(--font);font-size:6px;letter-spacing:2px;
+  background:transparent;color:var(--y2);border:2px solid var(--y2);cursor:pointer;white-space:nowrap}
+.btn-load:hover{background:rgba(255,179,0,.08)}
+.tpl-lbl{font-size:5px;color:var(--dim);letter-spacing:2px;white-space:nowrap}
+
+/* ACTION BUTTONS */
+.actions{padding:14px;display:flex;gap:8px;border-top:2px solid var(--b1);background:var(--panel);flex-shrink:0}
+.btn-save{
+  flex:1;padding:11px;font-family:var(--font);font-size:8px;letter-spacing:3px;
+  background:var(--y1);color:#000;border:none;cursor:pointer;
+  box-shadow:0 4px 0 var(--ydk);transition:transform .08s,box-shadow .08s}
+.btn-save:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ydk)}
+.btn-copy{
+  padding:11px 14px;font-family:var(--font);font-size:7px;letter-spacing:2px;
+  background:transparent;color:var(--y2);border:2px solid var(--y2);cursor:pointer}
+.btn-copy:hover{background:rgba(255,179,0,.08)}
+.save-msg{font-size:6px;color:var(--green);letter-spacing:1px;align-self:center;display:none}
+
+/* YAML PREVIEW */
+.preview-hdr{background:var(--panel);border-bottom:2px solid var(--b1);
+  padding:8px 14px;font-size:6px;color:var(--dim);letter-spacing:3px;flex-shrink:0}
+.yaml-out{flex:1;overflow:auto;padding:14px;font-family:monospace;font-size:10px;
+  line-height:1.8;color:var(--text);background:var(--bg)}
+.yaml-out::-webkit-scrollbar{width:3px}
+.yaml-out::-webkit-scrollbar-thumb{background:var(--b2)}
+/* syntax highlight classes */
+.yc{color:var(--dim)}    /* comment */
+.yk{color:var(--y1)}     /* key */
+.yv{color:var(--text)}   /* value */
+.ys{color:var(--y2)}     /* string value */
+.yn{color:var(--green)}  /* number */
+.yd{color:var(--dim)}    /* dashes/punct */
+
+/* ── FLOATING CHAT (Builder AI) ─────────────────────────────────────────────── */
+.chat-fab {
+  position:fixed;bottom:24px;right:24px;z-index:200;
+  background:var(--y1);color:#000;border:none;
+  font-family:var(--font);font-size:7px;letter-spacing:2px;
+  padding:11px 14px;cursor:pointer;
+  box-shadow:0 0 20px rgba(255,215,0,.4);
+}
+.chat-fab:hover{background:var(--y2)}
+.chat-fab.active{background:var(--b1);color:var(--y1);border:2px solid var(--y1)}
+.chat-float {
+  position:fixed;bottom:72px;right:24px;z-index:201;
+  width:360px;background:var(--panel);border:2px solid var(--y1);
+  display:none;flex-direction:column;
+  box-shadow:0 0 30px rgba(255,215,0,.15);
+}
+.chat-float.open{display:flex}
+.cf-hdr {
+  background:var(--b1);border-bottom:2px solid var(--y1);
+  padding:9px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.cf-title{font-size:7px;color:var(--y1);letter-spacing:3px}
+.cf-model{font-size:5px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-close {
+  background:none;border:1px solid var(--b3);color:var(--dim);
+  font-family:var(--font);font-size:8px;cursor:pointer;padding:1px 6px;line-height:1;
+}
+.cf-close:hover{border-color:var(--red);color:var(--red)}
+.cf-ctx {
+  padding:4px 10px;font-size:5px;color:var(--ydk);
+  border-bottom:1px solid var(--b1);flex-shrink:0;letter-spacing:1px;background:var(--panel2);
+}
+.cf-msgs {
+  overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;min-height:120px;max-height:300px;
+}
+.cf-msgs::-webkit-scrollbar{width:3px}
+.cf-msgs::-webkit-scrollbar-thumb{background:var(--b2)}
+.cf-msg{display:flex;flex-direction:column;gap:3px}
+.cf-role{font-size:5px;letter-spacing:2px;text-transform:uppercase}
+.cf-role.user{color:var(--ydk)}
+.cf-role.assistant{color:var(--y1)}
+.cf-body {
+  font-size:7px;line-height:1.8;color:var(--text);
+  white-space:pre-wrap;word-break:break-word;padding:5px 8px;
+}
+.cf-msg.user .cf-body{background:var(--panel2);border-left:2px solid var(--ydk)}
+.cf-msg.assistant .cf-body{border-left:2px solid var(--y1)}
+.cf-msg.error .cf-body{color:var(--red)}
+.cf-cursor {
+  display:inline-block;width:7px;height:10px;background:var(--y1);
+  vertical-align:text-bottom;margin-left:2px;
+  animation:cfblink .7s step-end infinite;
+}
+@keyframes cfblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.cf-patch-wrap {
+  margin-top:6px;padding:6px 8px;
+  border:1px solid var(--y2);background:rgba(255,215,0,.05);
+}
+.cf-patch-info{font-size:5px;color:var(--ydk);letter-spacing:1px;margin-bottom:5px}
+.cf-patch-btn {
+  font-family:var(--font);font-size:6px;letter-spacing:2px;cursor:pointer;
+  background:var(--y1);color:#000;border:none;padding:6px 10px;
+  display:block;width:100%;
+}
+.cf-patch-btn:hover{background:var(--y2)}
+.cf-patch-btn.applied{background:var(--green);color:#000}
+.cf-input-wrap {
+  padding:8px;border-top:2px solid var(--b1);flex-shrink:0;
+  display:flex;gap:6px;align-items:flex-end;
+}
+.cf-textarea {
+  flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:7px;padding:6px 8px;
+  resize:none;outline:none;line-height:1.7;min-height:44px;
+}
+.cf-textarea:focus{border-color:var(--y1)}
+.cf-send {
+  background:var(--y1);color:#000;border:none;
+  font-family:var(--font);font-size:6px;padding:8px 10px;cursor:pointer;flex-shrink:0;
+}
+.cf-send:hover{background:var(--y2)}
+.cf-send:disabled{background:var(--b2);color:var(--dim);cursor:not-allowed}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">benchb0t</span>
+  <span class="sep">│</span>
+  <span class="hdr-badge">LEVEL BUILDER</span>
+  <div style="margin-left:auto;display:flex;gap:10px">
+    <a class="nav-a" href="/">← LIVE</a>
+    <a class="nav-a" href="/analytics">ANALYTICS</a>
+  </div>
+</header>
+
+<div class="root">
+
+<!-- ── LEFT: FORM ── -->
+<div class="left">
+
+  <!-- LOAD / TEMPLATE BAR -->
+  <div class="load-bar">
+    <span class="tpl-lbl">LOAD</span>
+    <select id="load-sel">
+      <option value="">— existing level —</option>
+    </select>
+    <button class="btn-load" onclick="loadLevel()">EDIT ↓</button>
+    <span class="tpl-lbl" style="margin-left:4px">TPL</span>
+    <select id="tpl-sel" onchange="applyTemplate(this.value)">
+      <option value="">— template —</option>
+      <option value="webapp">🌐 Webapp</option>
+      <option value="file">📄 File task</option>
+      <option value="api">🔌 API fetch</option>
+      <option value="data">📊 Data pipeline</option>
+    </select>
+  </div>
+
+  <!-- datalists for comboboxes -->
+  <datalist id="dl-images">
+    <option value="python:3.11-slim">
+    <option value="python:3.12-slim">
+    <option value="python:3.10-slim">
+    <option value="node:20-slim">
+    <option value="node:18-slim">
+    <option value="node:22-slim">
+    <option value="ubuntu:22.04">
+    <option value="ubuntu:24.04">
+    <option value="debian:bookworm-slim">
+    <option value="alpine:3.19">
+    <option value="golang:1.22-alpine">
+    <option value="rust:1.77-slim">
+    <option value="php:8.3-cli">
+    <option value="ruby:3.3-slim">
+    <option value="openjdk:21-slim">
+    <option value="postgres:16-alpine">
+    <option value="redis:7-alpine">
+  </datalist>
+  <datalist id="dl-workdir">
+    <option value="/workspace">
+    <option value="/app">
+    <option value="/home/user">
+    <option value="/tmp/work">
+    <option value="/root">
+  </datalist>
+
+  <!-- LEVEL INFO -->
+  <div class="section">
+    <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Level info</span>
+    </div>
+    <div class="sec-body open">
+      <div class="field">
+        <label>Name</label>
+        <input id="f-name" type="text" placeholder="My Awesome Level" oninput="onNameInput()">
+      </div>
+      <div class="field">
+        <label>ID <span class="hint">(auto-generated, editable)</span></label>
+        <input id="f-id" type="text" placeholder="l-my-awesome-level" oninput="sync()">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Category</label>
+          <select id="f-cat" onchange="sync()">
+            <option value="general">general</option>
+            <option value="file-operations">file-operations</option>
+            <option value="webapp">webapp</option>
+            <option value="api">api</option>
+            <option value="data">data</option>
+            <option value="networking">networking</option>
+            <option value="code-generation">code-generation</option>
+            <option value="database">database</option>
+            <option value="devops">devops</option>
+            <option value="security">security</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tags <span class="hint">(comma-sep)</span></label>
+          <input id="f-tags" type="text" placeholder="beginner, read, write" oninput="sync()">
+        </div>
+      </div>
+      <div class="field">
+        <label>Difficulty</label>
+        <div class="diff-row" id="diff-stars">
+          <span class="diff-star on"  onclick="setDiff(1)">★</span>
+          <span class="diff-star off" onclick="setDiff(2)">★</span>
+          <span class="diff-star off" onclick="setDiff(3)">★</span>
+          <span class="diff-star off" onclick="setDiff(4)">★</span>
+          <span class="diff-star off" onclick="setDiff(5)">★</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTAINER -->
+  <div class="section">
+    <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Container</span>
+    </div>
+    <div class="sec-body open">
+      <div class="field-row">
+        <div class="field">
+          <label>Image</label>
+          <input id="f-image" type="text" list="dl-images" value="python:3.11-slim"
+                 placeholder="python:3.11-slim" oninput="onImageChange(this.value)" autocomplete="off">
+          <span class="hint">type or pick ↓</span>
+        </div>
+        <div class="field">
+          <label>Working dir</label>
+          <input id="f-workdir" type="text" list="dl-workdir" value="/workspace"
+                 placeholder="/workspace" oninput="sync()" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Package strip — only show sections relevant to the image -->
+      <div class="pkg-strip">
+        <div class="field pkg-apt" id="pkg-apt-wrap">
+          <label>APT <span class="hint">space-sep</span></label>
+          <input id="f-apt" type="text" placeholder="curl jq git" oninput="sync()">
+        </div>
+        <div class="field pkg-pip" id="pkg-pip-wrap">
+          <label>PIP <span class="hint">space-sep</span></label>
+          <input id="f-pip" type="text" placeholder="requests pandas" oninput="sync()">
+        </div>
+        <div class="field pkg-npm" id="pkg-npm-wrap">
+          <label>NPM <span class="hint">space-sep</span></label>
+          <input id="f-npm" type="text" placeholder="axios express" oninput="sync()">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Setup script <span class="hint">runs before agent starts</span></label>
+        <textarea id="f-setup" placeholder="mkdir -p /workspace&#10;printf 'hello' > /workspace/input.txt" oninput="sync()"></textarea>
+      </div>
+
+      <!-- Preview port (collapsed by default, shown when image is node / user sets it) -->
+      <div class="field-row" id="preview-fields">
+        <div class="field">
+          <label>🌐 Preview port</label>
+          <select id="f-port-sel" onchange="onPortPreset(this.value)">
+            <option value="">none</option>
+            <option value="3000">3000 (Node/Vite)</option>
+            <option value="5173">5173 (Vite default)</option>
+            <option value="8000">8000 (Python)</option>
+            <option value="8080">8080 (generic)</option>
+            <option value="5000">5000 (Flask)</option>
+            <option value="custom">custom…</option>
+          </select>
+        </div>
+        <div class="field" id="f-port-custom-wrap" style="display:none">
+          <label>Port number</label>
+          <input id="f-port" type="number" placeholder="3000" min="1" max="65535" oninput="sync()">
+        </div>
+        <div class="field" id="f-ppath-wrap" style="display:none">
+          <label>Preview path</label>
+          <input id="f-ppath" type="text" placeholder="/" value="/" oninput="sync()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK -->
+  <div class="section">
+    <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Task</span>
+    </div>
+    <div class="sec-body open">
+      <div class="field">
+        <label>Instruction</label>
+        <textarea id="f-instr" style="min-height:110px"
+          placeholder="Describe exactly what the agent must accomplish…" oninput="sync()"></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Max turns</label>
+          <div class="preset-row">
+            <select id="f-turns-sel" onchange="setPreset('f-turns',this.value)">
+              <option value="10">10 — quick</option>
+              <option value="15" selected>15 — normal</option>
+              <option value="20">20 — standard</option>
+              <option value="30">30 — extended</option>
+              <option value="50">50 — deep</option>
+              <option value="custom">custom…</option>
+            </select>
+            <input id="f-turns" type="number" value="15" min="1" max="200"
+                   style="display:none" oninput="sync()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Timeout</label>
+          <div class="preset-row">
+            <select id="f-timeout-sel" onchange="setPreset('f-timeout',this.value)">
+              <option value="60">60s — quick</option>
+              <option value="90" selected>90s — normal</option>
+              <option value="120">120s — standard</option>
+              <option value="180">180s — long</option>
+              <option value="300">300s — webapp</option>
+              <option value="600">600s — max</option>
+              <option value="custom">custom…</option>
+            </select>
+            <input id="f-timeout" type="number" value="90" min="10" max="600"
+                   style="display:none" oninput="sync()">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLS -->
+  <div class="section">
+    <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Tools</span>
+    </div>
+    <div class="sec-body open">
+      <div class="tool-grid">
+        <label class="tool-chk checked" id="tc-bash">
+          <input type="checkbox" checked onchange="syncTool(this,'bash')"> <span>bash</span>
+        </label>
+        <label class="tool-chk checked" id="tc-read_file">
+          <input type="checkbox" checked onchange="syncTool(this,'read_file')"> <span>read_file</span>
+        </label>
+        <label class="tool-chk checked" id="tc-write_file">
+          <input type="checkbox" checked onchange="syncTool(this,'write_file')"> <span>write_file</span>
+        </label>
+        <label class="tool-chk" id="tc-http_request">
+          <input type="checkbox" onchange="syncTool(this,'http_request')"> <span>http_request</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVALUATION -->
+  <div class="section">
+    <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Evaluation</span>
+    </div>
+    <div class="sec-body open">
+      <div class="field">
+        <label>Efficiency target <span class="hint">(ideal # of tool calls)</span></label>
+        <select id="f-eff-sel" onchange="setPreset('f-eff',this.value)">
+          <option value="3">3 — trivial</option>
+          <option value="5" selected>5 — simple</option>
+          <option value="8">8 — moderate</option>
+          <option value="12">12 — complex</option>
+          <option value="20">20 — webapp</option>
+          <option value="custom">custom…</option>
+        </select>
+        <input id="f-eff" type="number" value="5" min="1"
+               style="display:none;margin-top:4px" oninput="sync()">
+      </div>
+      <div class="criteria-list" id="crit-list"></div>
+      <button class="btn-add" onclick="addCriterion()">+ ADD CRITERION</button>
+    </div>
+  </div>
+
+  <!-- FORCED RETRY -->
+  <div class="section">
+    <div class="sec-hdr" onclick="toggleSec(this)">
+      <span class="sec-arr">▶</span>
+      <span class="sec-title">Forced Retry</span>
+      <span style="margin-left:auto;font-size:5px;color:var(--dim);letter-spacing:1px" id="retry-badge"></span>
+    </div>
+    <div class="sec-body">
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="f-retry-on" onchange="onRetryToggle()" style="accent-color:var(--y1);width:13px;height:13px">
+          <span>Enable forced retry</span>
+        </label>
+        <div class="hint">if agent fails, runner re-attempts with a point penalty</div>
+      </div>
+      <div id="retry-fields" style="display:none;flex-direction:column;gap:8px">
+        <div class="field-row3">
+          <div class="field">
+            <label>Max retries</label>
+            <input id="f-retry-max" type="number" value="2" min="1" max="10" oninput="sync()">
+          </div>
+          <div class="field">
+            <label>Penalty / retry</label>
+            <input id="f-retry-pen" type="number" value="10" min="1" max="50" step="0.5" oninput="sync()">
+          </div>
+          <div class="field">
+            <label>Threshold</label>
+            <input id="f-retry-thr" type="number" value="0.5" min="0.1" max="1.0" step="0.05" oninput="sync()">
+            <div class="hint">completion 0–1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="actions">
+    <button class="btn-copy" onclick="copyYaml()">📋 COPY</button>
+    <button class="btn-save" onclick="saveLevel()">💾 SAVE LEVEL</button>
+    <span class="save-msg" id="save-msg">✔ SAVED</span>
+  </div>
+
+</div><!-- /left -->
+
+<!-- ── RIGHT: YAML PREVIEW ── -->
+<div class="right">
+  <div class="preview-hdr">YAML PREVIEW — live</div>
+  <div class="yaml-out" id="yaml-out"></div>
+</div>
+
+</div><!-- /root -->
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let difficulty = 1;
+let tools      = ['bash','read_file','write_file'];
+let critCount  = 0;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.onload = async () => {
+  await populateLoadDropdown();
+  addCriterion({ id:'output_exists', desc:'output file must exist', check:"test -f /workspace/output.txt", weight:1.0 });
+  // initialise smart field states
+  onImageChange(document.getElementById('f-image')?.value || '');
+  onPortPreset(document.getElementById('f-port-sel')?.value || 'none');
+  sync();
+};
+
+async function populateLoadDropdown() {
+  try {
+    const levels = await fetch('/api/levels').then(r => r.json());
+    const sel = document.getElementById('load-sel');
+    sel.innerHTML = '<option value="">— existing level —</option>' +
+      levels.map(l => `<option value="${esc(l.id)}">${esc(l.name)} (${esc(l.id)})</option>`).join('');
+  } catch(e) {}
+}
+
+async function loadLevel() {
+  const stem = document.getElementById('load-sel').value;
+  if (!stem) return;
+  try {
+    const d = await fetch('/api/levels/' + encodeURIComponent(stem) + '/parsed').then(r => r.json());
+    if (d.error) { alert('Error: ' + d.error); return; }
+    setField('f-name',    d.name);
+    setField('f-id',      d.id);
+    setField('f-cat',     d.category);
+    setField('f-tags',    d.tags);
+    setField('f-image',   d.image);
+    onImageChange(d.image || '');
+    setField('f-workdir', d.working_dir);
+    setField('f-apt',     d.apt);
+    setField('f-pip',     d.pip);
+    setField('f-npm',     d.npm);
+    setField('f-setup',   d.setup_script);
+    setField('f-instr',   d.instruction);
+    setField('f-turns',   d.max_turns);
+    setField('f-timeout', d.timeout_s);
+    setField('f-eff',     d.efficiency_target);
+    setField('f-port',    d.preview_port || '');
+    setField('f-ppath',   d.preview_path || '/');
+    setDiff(d.difficulty || 1);
+
+    // tools
+    tools = [];
+    ['bash','read_file','write_file','http_request'].forEach(t => {
+      const cb  = document.querySelector(`#tc-${t} input`);
+      const lbl = document.getElementById('tc-' + t);
+      const on  = (d.tools || []).includes(t);
+      if (cb)  cb.checked = on;
+      if (lbl) lbl.classList.toggle('checked', on);
+      if (on)  tools.push(t);
+    });
+
+    // criteria — clear and re-add
+    document.getElementById('crit-list').innerHTML = '';
+    critCount = 0;
+    (d.criteria || []).forEach(c => addCriterion(c));
+
+    // forced retry
+    const retryOn = !!d.forced_retry?.enabled;
+    const cb = document.getElementById('f-retry-on');
+    if (cb) { cb.checked = retryOn; onRetryToggle(); }
+    if (retryOn) {
+      setField('f-retry-max', d.forced_retry.max_retries ?? 2);
+      setField('f-retry-pen', d.forced_retry.penalty_per_retry ?? 10);
+      setField('f-retry-thr', d.forced_retry.completion_threshold ?? 0.5);
+    }
+
+    sync();
+  } catch(e) { alert('Failed to load level: ' + e); }
+}
+
+// ── Forced retry toggle ───────────────────────────────────────────────────────
+function onRetryToggle() {
+  const on = document.getElementById('f-retry-on').checked;
+  const fields = document.getElementById('retry-fields');
+  if (fields) fields.style.display = on ? 'flex' : 'none';
+  const badge = document.getElementById('retry-badge');
+  if (badge) badge.textContent = on ? '⚡ ON' : '';
+  sync();
+}
+
+// ── Section toggle ────────────────────────────────────────────────────────────
+function toggleSec(hdr) {
+  hdr.classList.toggle('open');
+  const body = hdr.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ── Difficulty ────────────────────────────────────────────────────────────────
+function setDiff(n) {
+  difficulty = n;
+  document.querySelectorAll('#diff-stars .diff-star').forEach((s, i) => {
+    s.className = 'diff-star ' + (i < n ? 'on' : 'off');
+  });
+  sync();
+}
+
+// ── Tools ─────────────────────────────────────────────────────────────────────
+function syncTool(cb, name) {
+  const lbl = document.getElementById('tc-' + name);
+  if (cb.checked) { if (!tools.includes(name)) tools.push(name); lbl.classList.add('checked'); }
+  else            { tools = tools.filter(t => t !== name); lbl.classList.remove('checked'); }
+  sync();
+}
+
+// ── Name → ID slug ────────────────────────────────────────────────────────────
+function onNameInput() {
+  const name = val('f-name');
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  document.getElementById('f-id').value = slug ? 'l-' + slug : '';
+  sync();
+}
+
+// ── Criteria ──────────────────────────────────────────────────────────────────
+function addCriterion(defaults) {
+  const idx = ++critCount;
+  const d = defaults || {};
+  const card = document.createElement('div');
+  card.className = 'crit-card';
+  card.id = 'crit-' + idx;
+  card.innerHTML = `
+    <div class="crit-hdr" onclick="toggleCrit(${idx})">
+      <span class="crit-label">CRITERION #${idx}</span>
+      <span class="crit-del" onclick="event.stopPropagation();deleteCrit(${idx})">✕</span>
+    </div>
+    <div class="crit-body" id="crit-body-${idx}">
+      <div class="field-row">
+        <div class="field">
+          <label>ID</label>
+          <input class="ci" id="ci-id-${idx}" type="text" value="${esc(d.id||'')}" placeholder="output_exists" oninput="sync()">
+        </div>
+        <div class="field">
+          <label>Weight</label>
+          <input class="ci" id="ci-w-${idx}" type="number" value="${d.weight||1.0}" min="0.1" step="0.5" oninput="sync()">
+        </div>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input class="ci" id="ci-desc-${idx}" type="text" value="${esc(d.desc||'')}" placeholder="what this checks" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Shell check</label>
+        <textarea class="ci" id="ci-check-${idx}" oninput="sync()">${esc(d.check||'')}</textarea>
+      </div>
+    </div>`;
+  document.getElementById('crit-list').appendChild(card);
+  sync();
+}
+
+function toggleCrit(idx) {
+  document.getElementById('crit-body-' + idx).classList.toggle('open');
+}
+
+function deleteCrit(idx) {
+  const el = document.getElementById('crit-' + idx);
+  if (el) el.remove();
+  sync();
+}
+
+function getCriteria() {
+  const items = [];
+  document.querySelectorAll('.crit-card').forEach(card => {
+    const idx = card.id.split('-')[1];
+    const id    = val('ci-id-'   + idx);
+    const desc  = val('ci-desc-' + idx);
+    const check = val('ci-check-' + idx);
+    const w     = parseFloat(val('ci-w-' + idx)) || 1.0;
+    if (id || check) items.push({ id, desc, check, weight: w });
+  });
+  return items;
+}
+
+// ── YAML builder ──────────────────────────────────────────────────────────────
+function buildYaml() {
+  const id      = val('f-id')      || 'l-my-level';
+  const name    = val('f-name')    || 'My Level';
+  const cat     = val('f-cat')     || 'general';
+  const tagsRaw = val('f-tags');
+  const tags    = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  const image   = val('f-image')   || 'python:3.11-slim';
+  const workdir = val('f-workdir') || '/workspace';
+  const apt     = val('f-apt').split(/[\s,]+/).filter(Boolean);
+  const pip     = val('f-pip').split(/[\s,]+/).filter(Boolean);
+  const npm     = val('f-npm').split(/[\s,]+/).filter(Boolean);
+  const setup   = val('f-setup');
+  const instr   = val('f-instr');
+  const turns   = val('f-turns')   || '15';
+  const timeout = val('f-timeout') || '90';
+  const eff     = val('f-eff')     || '5';
+  const port        = val('f-port');
+  const ppath       = val('f-ppath')   || '/';
+  const crits       = getCriteria();
+  const retryOn     = document.getElementById('f-retry-on')?.checked || false;
+  const retryMax    = val('f-retry-max')  || '2';
+  const retryPen    = val('f-retry-pen')  || '10';
+  const retryThr    = val('f-retry-thr')  || '0.5';
+
+  const yTags  = tags.length  ? '[' + tags.join(', ')  + ']' : '[]';
+  const yApt   = apt.length   ? '[' + apt.join(', ')   + ']' : '[]';
+  const yPip   = pip.length   ? '[' + pip.join(', ')   + ']' : '[]';
+  const yNpm   = npm.length   ? '[' + npm.join(', ')   + ']' : '[]';
+  const yTools = tools.map(t => '  - ' + t).join('\n');
+
+  // Indent multiline strings for YAML block scalar
+  const indentBlock = (s, indent) =>
+    s.split('\n').map((l, i) => (i === 0 ? '' : ' '.repeat(indent)) + l).join('\n');
+  const setupBlock = setup
+    ? '|\n    ' + setup.split('\n').join('\n    ')
+    : 'null';
+  const instrBlock = instr
+    ? '|\n    ' + instr.split('\n').join('\n    ')
+    : '""';
+
+  const critYaml = crits.map(c => {
+    const checkBlock = c.check.includes('\n')
+      ? '|\n        ' + c.check.split('\n').join('\n        ')
+      : JSON.stringify(c.check);
+    return [
+      '    - id:          ' + c.id,
+      '      description: "' + c.desc.replace(/"/g, '\\"') + '"',
+      '      type:        script',
+      '      check:       ' + checkBlock,
+      '      weight:      ' + c.weight,
+    ].join('\n');
+  }).join('\n\n');
+
+  const parts = [
+    '# ──────────────────────────────────────────────────────────────────────',
+    '# ' + name,
+    '# Difficulty: ' + '★'.repeat(difficulty) + '☆'.repeat(5-difficulty),
+    '# Generated by benchb0t level builder',
+    '# ──────────────────────────────────────────────────────────────────────',
+    '',
+    'level:',
+    '  id:         ' + id,
+    '  name:       "' + name + '"',
+    '  difficulty: ' + difficulty,
+    '  category:   ' + cat,
+    '  tags:       ' + yTags,
+    '',
+    'container:',
+    '  image:       ' + image,
+    '  working_dir: ' + workdir,
+    '  env:',
+    '    TASK_ENV: sandbox',
+    '  volumes: []',
+    '  packages:',
+    '    apt: ' + yApt,
+    '    pip: ' + yPip,
+    '    npm: ' + yNpm,
+    '  setup_script: ' + setupBlock,
+    '',
+  ];
+
+  // preview block — only emit when a port is specified
+  if (port) {
+    parts.push(
+      'preview:',
+      '  port: ' + port,
+      '  path: "' + ppath + '"',
+      '',
+    );
+  }
+
+  parts.push(
+    'task:',
+    '  instruction: ' + instrBlock,
+    '  context: null',
+    '  max_turns:  ' + turns,
+    '  timeout_s:  ' + timeout,
+    '',
+    'tools:',
+    yTools || '  - bash',
+    '',
+    'evaluation:',
+    '  type:              script',
+    '  efficiency_target: ' + eff,
+    '  criteria:',
+    critYaml || '    []',
+  );
+
+  // forced_retry block — only emit when enabled
+  if (retryOn) {
+    parts.push(
+      '',
+      'forced_retry:',
+      '  enabled:              true',
+      '  max_retries:          ' + retryMax,
+      '  penalty_per_retry:    ' + retryPen,
+      '  completion_threshold: ' + retryThr,
+    );
+  }
+
+  return parts.join('\n');
+}
+
+// ── Live preview with syntax highlighting ─────────────────────────────────────
+function sync() {
+  const yaml  = buildYaml();
+  const lines = yaml.split('\n');
+  const html  = lines.map(line => {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (/^\s*#/.test(line))   return `<span class="yc">${esc(line)}</span>`;
+    const m = line.match(/^(\s*)([\w_]+)(:)(.*)/);
+    if (m) {
+      const val = m[4];
+      let vspan;
+      if (/^\s*\|/.test(val))       vspan = `<span class="yd">${esc(val)}</span>`;
+      else if (/^\s*[\d.]+$/.test(val.trim())) vspan = `<span class="yn">${esc(val)}</span>`;
+      else if (/^\s*"/.test(val))   vspan = `<span class="ys">${esc(val)}</span>`;
+      else if (/^\s*\[/.test(val))  vspan = `<span class="ys">${esc(val)}</span>`;
+      else                          vspan = `<span class="yv">${esc(val)}</span>`;
+      return `${esc(m[1])}<span class="yk">${esc(m[2])}</span><span class="yd">${esc(m[3])}</span>${vspan}`;
+    }
+    if (/^\s*-\s/.test(line))  return `<span class="ys">${esc(line)}</span>`;
+    return `<span class="yv">${esc(line)}</span>`;
+  }).join('\n');
+  document.getElementById('yaml-out').innerHTML = html;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveLevel() {
+  const id       = val('f-id') || 'l-my-level';
+  const filename = id + '.yaml';
+  const content  = buildYaml();
+  const res = await fetch('/api/levels/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content }),
+  });
+  const data = await res.json();
+  const msg = document.getElementById('save-msg');
+  if (res.ok) {
+    msg.textContent = '✔ SAVED → levels/' + filename;
+    msg.style.color = 'var(--green)';
+  } else {
+    msg.textContent = '✘ ' + (data.error || 'error');
+    msg.style.color = 'var(--red)';
+  }
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 3500);
+}
+
+function copyYaml() {
+  navigator.clipboard.writeText(buildYaml()).catch(() => {});
+  const btn = document.querySelector('.btn-copy');
+  btn.textContent = '✔ COPIED';
+  setTimeout(() => { btn.textContent = '📋 COPY'; }, 1500);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function setField(id, v) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const s = (v == null) ? '' : String(v);
+  el.value = s;
+  // sync associated selects (preset dropdowns)
+  const sel = document.getElementById(id + '-sel');
+  if (sel) {
+    const opt = [...sel.options].find(o => o.value === s);
+    if (opt) { sel.value = s; showCustomInput(id, false); }
+    else if (s) { sel.value = 'custom'; showCustomInput(id, true); }
+    else { sel.selectedIndex = 0; showCustomInput(id, false); }
+  }
+  // sync port select
+  if (id === 'f-port') {
+    const ps = document.getElementById('f-port-sel');
+    if (ps) {
+      if (!s) { ps.value = 'none'; showPortCustom(false); }
+      else {
+        const has = [...ps.options].find(o => o.value === s);
+        ps.value = has ? s : 'custom';
+        showPortCustom(ps.value === 'custom');
+      }
+    }
+  }
+  // sync category select
+  if (id === 'f-cat') {
+    const cs = document.getElementById('f-cat');
+    if (cs.tagName === 'SELECT') {
+      const has = [...cs.options].find(o => o.value === s);
+      if (!has) {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        cs.appendChild(opt);
+      }
+      cs.value = s;
+    }
+  }
+}
+
+// ── Preset selects ────────────────────────────────────────────────────────────
+function showCustomInput(fieldId, show) {
+  const inp = document.getElementById(fieldId);
+  if (inp) inp.style.display = show ? 'block' : 'none';
+}
+
+function setPreset(fieldId, val) {
+  if (val === 'custom') {
+    showCustomInput(fieldId, true);
+    document.getElementById(fieldId).focus();
+  } else {
+    showCustomInput(fieldId, false);
+    setField(fieldId, val);
+  }
+  sync();
+}
+
+// ── Image combobox — auto-show/hide pkg sections ───────────────────────────
+const NODE_IMGS   = /^node:/i;
+const PYTHON_IMGS = /^python:|^django:|^flask:/i;
+
+function onImageChange(v) {
+  // highlight relevant package inputs
+  const isNode   = NODE_IMGS.test(v);
+  const isPython = PYTHON_IMGS.test(v);
+  const npmWrap  = document.getElementById('pkg-npm-wrap');
+  const pipWrap  = document.getElementById('pkg-pip-wrap');
+  const prevF    = document.getElementById('preview-fields');
+  if (npmWrap) npmWrap.style.opacity  = isNode   ? '1' : '0.4';
+  if (pipWrap) pipWrap.style.opacity  = isPython ? '1' : '0.4';
+  // auto-suggest port for node images
+  if (isNode) {
+    const ps = document.getElementById('f-port-sel');
+    if (ps && ps.value === 'none') { ps.value = '3000'; onPortPreset('3000'); }
+  }
+  sync();
+}
+
+// ── Port preset ───────────────────────────────────────────────────────────────
+function showPortCustom(show) {
+  const wrap = document.getElementById('f-port-custom-wrap');
+  const ppath = document.getElementById('f-ppath-wrap');
+  if (wrap) wrap.style.display = show ? 'block' : 'none';
+  if (ppath) ppath.style.display = show || document.getElementById('f-port-sel')?.value !== 'none' ? 'flex' : 'none';
+}
+
+function onPortPreset(v) {
+  if (v === 'none') {
+    setField('f-port', '');
+    showPortCustom(false);
+    document.getElementById('f-ppath-wrap').style.display = 'none';
+  } else if (v === 'custom') {
+    showPortCustom(true);
+    document.getElementById('f-port').focus();
+  } else {
+    showPortCustom(false);
+    setField('f-port', v);
+    document.getElementById('f-ppath-wrap').style.display = 'flex';
+  }
+  sync();
+}
+
+// ── Templates ─────────────────────────────────────────────────────────────────
+function applyTemplate(type) {
+  if (!type) return;
+  // reset template dropdown so it can be reselected
+  document.getElementById('tpl-sel').value = '';
+
+  const T = {
+    webapp: {
+      name:    'Webapp Level',
+      cat:     'webapp',
+      tags:    'webapp,node,server',
+      image:   'node:20-slim',
+      workdir: '/workspace',
+      apt:     'curl',
+      pip:     '',
+      npm:     '',
+      setup:   'mkdir -p /workspace',
+      instr: [
+        'Create a simple Express.js web server that:',
+        '1. Listens on port 3000 bound to 0.0.0.0 (NOT localhost)',
+        '2. Has a GET / route that responds with {"status":"ok"}',
+        '3. Starts in the background (use & at end of command)',
+        '4. Verify it is running: curl -sf http://localhost:3000/',
+        '',
+        'Example server (server.js):',
+        '  const express = require("express");',
+        '  const app = express();',
+        '  app.get("/", (req, res) => res.json({status:"ok"}));',
+        '  app.listen(3000, "0.0.0.0", () => console.log("ready"));',
+        '',
+        'Start it: node server.js &',
+        'Then verify: curl -sf http://localhost:3000/',
+      ].join('\n'),
+      turns:   '20',
+      timeout: '120',
+      eff:     '8',
+      port:    '3000',
+      ppath:   '/',
+      diff:    2,
+      tools:   ['bash', 'write_file'],
+      criteria: [
+        { id:'server_responds', desc:'server responds on port 3000', check:'curl -sf http://localhost:3000/', weight: 1.5 },
+        { id:'server_file_exists', desc:'server.js exists in /workspace', check:'test -f /workspace/server.js', weight: 0.5 },
+      ],
+    },
+    file: {
+      name:    'File Transform Level',
+      cat:     'file-operations',
+      tags:    'beginner,file,transform',
+      image:   'python:3.11-slim',
+      workdir: '/workspace',
+      apt:     '',
+      pip:     '',
+      npm:     '',
+      setup:   'mkdir -p /workspace\nprintf "hello world\\nline two\\nline three" > /workspace/input.txt',
+      instr:   'Read /workspace/input.txt, convert all text to UPPERCASE, and write the result to /workspace/output.txt.',
+      turns:   '10',
+      timeout: '60',
+      eff:     '3',
+      port:    '',
+      ppath:   '/',
+      diff:    1,
+      tools:   ['bash', 'read_file', 'write_file'],
+      criteria: [
+        { id:'output_exists', desc:'output.txt exists', check:'test -f /workspace/output.txt', weight: 1.0 },
+        { id:'output_uppercase', desc:'output is uppercase', check:'grep -q "HELLO WORLD" /workspace/output.txt', weight: 1.5 },
+      ],
+    },
+    api: {
+      name:    'API Fetch Level',
+      cat:     'networking',
+      tags:    'api,http,json',
+      image:   'python:3.11-slim',
+      workdir: '/workspace',
+      apt:     'curl',
+      pip:     'requests',
+      npm:     '',
+      setup:   'mkdir -p /workspace',
+      instr:   'Fetch the JSON from https://httpbin.org/json and save the "slideshow.title" field value as plain text to /workspace/title.txt.',
+      turns:   '10',
+      timeout: '60',
+      eff:     '4',
+      port:    '',
+      ppath:   '/',
+      diff:    2,
+      tools:   ['bash', 'write_file'],
+      criteria: [
+        { id:'title_file_exists', desc:'title.txt exists', check:'test -f /workspace/title.txt', weight: 1.0 },
+        { id:'title_correct', desc:'title contains expected text', check:'grep -qi "sample" /workspace/title.txt', weight: 2.0 },
+      ],
+    },
+    data: {
+      name:    'Data Pipeline Level',
+      cat:     'data',
+      tags:    'data,csv,pandas,analysis',
+      image:   'python:3.11-slim',
+      workdir: '/workspace',
+      apt:     '',
+      pip:     'pandas',
+      npm:     '',
+      setup: [
+        'mkdir -p /workspace',
+        'python3 -c "',
+        'import csv, random, datetime',
+        'rows = [[\"date\",\"sales\"]]',
+        'for i in range(30):',
+        '    d = datetime.date(2024,1,1) + datetime.timedelta(days=i)',
+        '    rows.append([str(d), random.randint(100,1000)])',
+        'with open(\"/workspace/sales.csv\",\"w\",newline=\"\") as f:',
+        '    csv.writer(f).writerows(rows)',
+        '"',
+      ].join('\n'),
+      instr:   'Analyze /workspace/sales.csv and write a summary to /workspace/summary.txt that includes:\n- Total sales\n- Average daily sales (rounded to 2 decimal places)\n- The date with the highest sales',
+      turns:   '15',
+      timeout: '90',
+      eff:     '5',
+      port:    '',
+      ppath:   '/',
+      diff:    2,
+      tools:   ['bash', 'read_file', 'write_file'],
+      criteria: [
+        { id:'summary_exists', desc:'summary.txt exists', check:'test -f /workspace/summary.txt', weight: 1.0 },
+        { id:'has_total', desc:'summary mentions total', check:'grep -qi "total" /workspace/summary.txt', weight: 1.0 },
+        { id:'has_average', desc:'summary mentions average', check:'grep -qi "average\\|avg" /workspace/summary.txt', weight: 1.0 },
+      ],
+    },
+  };
+
+  const tpl = T[type];
+  if (!tpl) return;
+
+  setField('f-name',    tpl.name);
+  setField('f-id',      'l-' + type + '-level');
+  setField('f-cat',     tpl.cat);
+  setField('f-tags',    tpl.tags);
+  setField('f-image',   tpl.image);
+  onImageChange(tpl.image || '');
+  setField('f-workdir', tpl.workdir);
+  setField('f-apt',     tpl.apt);
+  setField('f-pip',     tpl.pip);
+  setField('f-npm',     tpl.npm);
+  setField('f-setup',   tpl.setup);
+  setField('f-instr',   tpl.instr);
+  setField('f-turns',   tpl.turns);
+  setField('f-timeout', tpl.timeout);
+  setField('f-eff',     tpl.eff);
+  setField('f-port',    tpl.port);
+  setField('f-ppath',   tpl.ppath);
+  setDiff(tpl.diff);
+
+  // tools
+  tools = [];
+  ['bash','read_file','write_file','http_request'].forEach(t => {
+    const cb  = document.querySelector(`#tc-${t} input`);
+    const lbl = document.getElementById('tc-' + t);
+    const on  = tpl.tools.includes(t);
+    if (cb)  cb.checked = on;
+    if (lbl) lbl.classList.toggle('checked', on);
+    if (on)  tools.push(t);
+  });
+
+  // criteria
+  document.getElementById('crit-list').innerHTML = '';
+  critCount = 0;
+  (tpl.criteria || []).forEach(c => addCriterion(c));
+
+  sync();
+}
+
+// ── Builder AI Chat ───────────────────────────────────────────────────────────
+let cfOpen    = false;
+let cfBusy    = false;
+let cfHistory = [];
+
+function toggleCF() {
+  cfOpen = !cfOpen;
+  document.getElementById('cf-panel').classList.toggle('open', cfOpen);
+  document.getElementById('cf-fab').classList.toggle('active', cfOpen);
+  if (cfOpen) {
+    document.getElementById('cf-input').focus();
+    const lbl = document.getElementById('cf-model-lbl');
+    if (!lbl.textContent.trim() || lbl.textContent === '—') {
+      fetch('/api/credentials').then(r => r.json()).then(d => {
+        lbl.textContent = d.model || d.providers?.[0]?.model || 'not configured';
+      }).catch(() => {});
+    }
+  }
+}
+
+// Serialize current form to YAML string for the AI context
+function serializeLevelContext() {
+  return buildYaml();
+}
+
+async function sendBuilderAI() {
+  if (cfBusy) return;
+  const input = document.getElementById('cf-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  cfHistory.push({ role: 'user', content: text });
+  appendCF('user', text);
+
+  cfBusy = true;
+  document.getElementById('cf-send-btn').disabled = true;
+  const aEl    = appendCF('assistant', '');
+  const bodyEl = aEl.querySelector('.cf-body');
+  const cursor = document.createElement('span');
+  cursor.className = 'cf-cursor';
+  bodyEl.appendChild(cursor);
+
+  let full = '';
+  try {
+    const res = await fetch('/api/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        messages:     cfHistory,
+        page:         'builder',
+        page_context: serializeLevelContext(),
+      }),
+    });
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') break;
+        try {
+          const ev = JSON.parse(payload);
+          if (ev.error) { bodyEl.textContent = 'Error: ' + ev.error; aEl.classList.add('error'); break; }
+          if (ev.delta) {
+            full += ev.delta;
+            bodyEl.textContent = full;
+            bodyEl.appendChild(cursor);
+            const msgs = document.getElementById('cf-msgs');
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    bodyEl.textContent = 'Error: ' + e.message;
+    aEl.classList.add('error');
+  } finally {
+    cursor.remove();
+    cfHistory.push({ role: 'assistant', content: full });
+    cfBusy = false;
+    document.getElementById('cf-send-btn').disabled = false;
+    document.getElementById('cf-input').focus();
+
+    // Detect <level_patch> blocks and render an apply button
+    const patchMatch = full.match(/<level_patch>([\s\S]*?)<\/level_patch>/);
+    if (patchMatch) {
+      try {
+        const patchJson = JSON.parse(patchMatch[1].trim());
+        const keys = Object.keys(patchJson).join(', ');
+        const wrap = document.createElement('div');
+        wrap.className = 'cf-patch-wrap';
+        wrap.innerHTML = `<div class="cf-patch-info">◆ PATCH READY: ${esc(keys)}</div>`;
+        const btn = document.createElement('button');
+        btn.className = 'cf-patch-btn';
+        btn.textContent = '▶ APPLY PATCH TO FORM';
+        btn.onclick = () => {
+          applyLevelPatch(patchJson);
+          btn.textContent = '✔ APPLIED';
+          btn.classList.add('applied');
+          btn.disabled = true;
+        };
+        wrap.appendChild(btn);
+        aEl.appendChild(wrap);
+        const msgs = document.getElementById('cf-msgs');
+        msgs.scrollTop = msgs.scrollHeight;
+      } catch(e) { /* malformed patch JSON — silently skip */ }
+    }
+  }
+}
+
+function appendCF(role, text) {
+  const msgs = document.getElementById('cf-msgs');
+  const div  = document.createElement('div');
+  div.className = 'cf-msg ' + role;
+  div.innerHTML = `
+    <span class="cf-role ${role}">${role === 'user' ? 'YOU' : 'BENCHBOT-AI'}</span>
+    <div class="cf-body">${esc(text)}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+// Apply a <level_patch> JSON object to the live form
+function applyLevelPatch(patch) {
+  const fieldMap = {
+    name:              'f-name',
+    id:                'f-id',
+    category:          'f-cat',
+    tags:              'f-tags',
+    image:             'f-image',
+    working_dir:       'f-workdir',
+    apt:               'f-apt',
+    pip:               'f-pip',
+    npm:               'f-npm',
+    setup_script:      'f-setup',
+    instruction:       'f-instr',
+    max_turns:         'f-turns',
+    timeout_s:         'f-timeout',
+    efficiency_target: 'f-eff',
+    preview_port:      'f-port',
+    preview_path:      'f-ppath',
+  };
+
+  for (const [key, fieldId] of Object.entries(fieldMap)) {
+    if (patch[key] !== undefined) {
+      const v = Array.isArray(patch[key]) ? patch[key].join(' ') : patch[key];
+      setField(fieldId, String(v));
+    }
+  }
+
+  // image → trigger package-visibility update
+  if (patch.image) onImageChange(patch.image);
+
+  // difficulty
+  if (patch.difficulty !== undefined) setDiff(Number(patch.difficulty));
+
+  // tools — full replacement
+  if (Array.isArray(patch.tools)) {
+    tools = [];
+    ['bash','read_file','write_file','http_request'].forEach(t => {
+      const cb  = document.querySelector(`#tc-${t} input`);
+      const lbl = document.getElementById('tc-' + t);
+      const on  = patch.tools.includes(t);
+      if (cb)  cb.checked = on;
+      if (lbl) lbl.classList.toggle('checked', on);
+      if (on)  tools.push(t);
+    });
+  }
+
+  // criteria — full replacement when provided
+  if (Array.isArray(patch.criteria)) {
+    document.getElementById('crit-list').innerHTML = '';
+    critCount = 0;
+    patch.criteria.forEach(c => addCriterion(c));
+  }
+
+  sync();
+}
+</script>
+
+<!-- BENCHBOT-AI FAB + Floating Chat (Builder) -->
+<button class="chat-fab" id="cf-fab" onclick="toggleCF()">🤖 AI EDIT</button>
+<div class="chat-float" id="cf-panel">
+  <div class="cf-hdr">
+    <span class="cf-title">BENCHBOT-AI</span>
+    <span class="cf-model" id="cf-model-lbl">—</span>
+    <button class="cf-close" onclick="toggleCF()">✕</button>
+  </div>
+  <div class="cf-ctx">◆ level editor · patch proposals · apply to form</div>
+  <div class="cf-msgs" id="cf-msgs">
+    <div class="cf-msg assistant">
+      <span class="cf-role assistant">BENCHBOT-AI</span>
+      <div class="cf-body">Zeig mir was du baust — ich schlage Patches vor die du direkt auf das Formular anwenden kannst.</div>
+    </div>
+  </div>
+  <div class="cf-input-wrap">
+    <textarea class="cf-textarea" id="cf-input"
+      placeholder="Mach die Kriterien strenger…"
+      rows="2"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendBuilderAI();}"></textarea>
+    <button class="cf-send" id="cf-send-btn" onclick="sendBuilderAI()">▶</button>
+  </div>
+</div>
+</body>
+</html>

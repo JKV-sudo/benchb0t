@@ -179,6 +179,15 @@ class Recorder:
             call_id[:6], exit_code, _truncate(output),
         )
 
+    def record_preview_ready(self, host_port: int, path: str = "/") -> None:
+        """
+        Write a preview_ready event once Docker has assigned a host port.
+        Called after container.start() so the real ephemeral port is known.
+        The dashboard uses this to point the preview iframe at the right port.
+        """
+        self._write(type="preview_ready", host_preview_port=host_port, preview_path=path)
+        logger.info("Preview ready on host port %d (path=%s)", host_port, path)
+
     def end(self, score: dict[str, Any] | None = None, timed_out: bool = False) -> None:
         """Write the session_end event, flush, and (optionally) compress."""
         duration = round(time.time() - self._started, 2)

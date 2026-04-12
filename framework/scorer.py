@@ -23,8 +23,6 @@ Penalties (subtracted before normalisation)
 from __future__ import annotations
 
 import logging
-import re
-import subprocess
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -48,9 +46,16 @@ class ScoreBreakdown:
     self_correction: float = 0.0   # 0–1
     path_quality: float    = 0.0   # 0–1
 
+    completion_weight: float = 0.40
+    efficiency_weight: float = 0.25
+    self_correction_weight: float = 0.20
+    path_quality_weight: float = 0.15
+
     penalty_extra_calls: float = 0.0
     penalty_backtracks: float  = 0.0
     penalty_timeout: float     = 0.0
+    # Accumulated penalty for forced-retry attempts (−penalty_per_retry × retries used)
+    penalty_retry: float       = 0.0
 
     criteria_results: list[CriterionResult] = field(default_factory=list)
 
@@ -58,13 +63,14 @@ class ScoreBreakdown:
     def total(self) -> float:
         """Weighted sum minus penalties, clamped to [0, 100]."""
         raw = (
-            self.completion      * 40.0
-            + self.efficiency    * 25.0
-            + self.self_correction * 20.0
-            + self.path_quality  * 15.0
+            self.completion * self.completion_weight * 100.0
+            + self.efficiency * self.efficiency_weight * 100.0
+            + self.self_correction * self.self_correction_weight * 100.0
+            + self.path_quality * self.path_quality_weight * 100.0
             - self.penalty_extra_calls
             - self.penalty_backtracks
             - self.penalty_timeout
+            - self.penalty_retry
         )
         return max(0.0, min(100.0, raw))
 
@@ -81,6 +87,7 @@ class ScoreBreakdown:
                 "extra_calls": round(self.penalty_extra_calls, 2),
                 "backtracks":  round(self.penalty_backtracks, 2),
                 "timeout":     round(self.penalty_timeout, 2),
+                "retry":       round(self.penalty_retry, 2),
             },
             "criteria": [
                 {
@@ -110,8 +117,19 @@ class Scorer:
 
     def __init__(self, eval_cfg: dict[str, Any], scoring_cfg: dict[str, Any]) -> None:
         self._eval = eval_cfg
-        self._weights = scoring_cfg.get("weights", {})
-        self._penalties_cfg = scoring_cfg.get("penalties", {})
+        raw_weights = scoring_cfg.get("weights", {})
+        self._weights = {
+            "completion": float(raw_weights.get("completion", 0.40)),
+            "efficiency": float(raw_weights.get("efficiency", 0.25)),
+            "self_correction": float(raw_weights.get("self_correction", 0.20)),
+            "path_quality": float(raw_weights.get("path_quality", 0.15)),
+        }
+        raw_penalties = scoring_cfg.get("penalties", {})
+        self._penalties_cfg = {
+            "extra_tool_call": abs(float(raw_penalties.get("extra_tool_call", 0.5))),
+            "backtrack": abs(float(raw_penalties.get("backtrack", 1.0))),
+            "timeout": abs(float(raw_penalties.get("timeout", 5.0))),
+        }
 
     def score(
         self,
@@ -135,7 +153,12 @@ class Scorer:
         judge_fn : callable, optional
             Function to call an LLM judge for llm_judge evaluations.
         """
-        bd = ScoreBreakdown()
+        bd = ScoreBreakdown(
+            completion_weight=self._weights["completion"],
+            efficiency_weight=self._weights["efficiency"],
+            self_correction_weight=self._weights["self_correction"],
+            path_quality_weight=self._weights["path_quality"],
+        )
 
         # ── 1. Evaluate criteria ──────────────────────────────────────────────
         criteria = self._eval.get("criteria", [])
