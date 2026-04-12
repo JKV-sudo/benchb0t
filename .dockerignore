@@ -1,0 +1,17 @@
+.git
+.gitignore
+.DS_Store
+.fuse_hidden*
+
+.env
+.benchb0t_creds.json
+
+runs/
+benchb0t.db
+benchb0t.db-*
+
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.egg-info/

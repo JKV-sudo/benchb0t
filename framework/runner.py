@@ -36,15 +36,18 @@ import time
 from pathlib import Path
 from typing import Any
 
-import yaml
 from dotenv import load_dotenv
 
 from framework.api import AgentAPI
 from framework.config import (
     FrameworkConfig,
     FrameworkConfigError,
+    HarnessValidationError,
+    LevelValidationError,
     LoadedFrameworkConfig,
     load_framework_config,
+    load_harness_config,
+    load_level_config,
 )
 from framework.container import LevelContainer, ContainerError
 from framework.recorder import Recorder
@@ -432,6 +435,23 @@ def run_agent_loop(
 
 # ── Level runner ──────────────────────────────────────────────────────────────
 
+def _resolve_preview_linger_seconds(
+    framework_cfg: FrameworkConfig,
+    level_cfg: dict[str, Any],
+    host_preview_port: int | None,
+) -> int:
+    """Return how long a preview container should stay alive after scoring."""
+    if not host_preview_port:
+        return 0
+
+    preview_cfg = level_cfg.get("preview", {}) or {}
+    override = preview_cfg.get("linger_seconds")
+    if override is not None:
+        return int(override)
+
+    return int(framework_cfg.framework.preview_linger_seconds)
+
+
 def run_level(
     level_path: Path,
     harness_path: Path,
@@ -451,8 +471,8 @@ def run_level(
         out the approach itself.
     """
     cfg = framework_cfg.config
-    level_cfg = yaml.safe_load(level_path.read_text())
-    harness_cfg = yaml.safe_load(harness_path.read_text())
+    level_cfg = load_level_config(level_path).model_dump(mode="python", exclude_none=True)
+    harness_cfg = load_harness_config(harness_path).model_dump(mode="python", exclude_none=True)
     # Harness YAML can override mode: guided | unguided
     mode = harness_cfg.get("harness", {}).get("mode", mode)
     task_cfg = cfg.agent.apply_task_defaults(level_cfg.get("task", {}))
@@ -478,9 +498,14 @@ def run_level(
     timed_out = False
     score_summary: dict[str, Any] = {}
     host_preview_port: int | None = None   # set inside try-block if container starts OK
+    preview_linger_seconds = 0
+    preview_expires_at: float | None = None
+    result_duration_s = 0.0
+    session_ended = False
     provider_slot = max(1, int(os.getenv("BENCHBOT_PROVIDER_SLOT", "1") or "1"))
     provider_label = os.getenv("BENCHBOT_PROVIDER_LABEL") or os.getenv("BENCHBOT_MODEL", "") or harness_name
     panel_id = f"p{provider_slot}--{level_id}"
+    container: LevelContainer | None = None
 
     try:
         recorder.start(
@@ -515,74 +540,95 @@ def run_level(
         penalty_per_retry     = float(retry_cfg.get("penalty_per_retry", 10.0))
         completion_threshold  = float(retry_cfg.get("completion_threshold", 0.5))
 
-        with container.session():
-            timed_out = not run_agent_loop(
-                api=api,
-                container=container,
-                recorder=recorder,
-                task_cfg=task_cfg,
-                tools_list=level_cfg.get("tools", []),
-                system_prompt=system_prompt,
-            )
+        container.start()
 
-            # Capture the dynamic host port Docker assigned (may be None for non-preview levels)
-            host_preview_port = container.host_preview_port
+        timed_out = not run_agent_loop(
+            api=api,
+            container=container,
+            recorder=recorder,
+            task_cfg=task_cfg,
+            tools_list=level_cfg.get("tools", []),
+            system_prompt=system_prompt,
+        )
 
-            # Notify the dashboard of the real host port so the iframe uses it.
-            # This event is written after container.start() — the only point where
-            # Docker has assigned the ephemeral port.
-            if host_preview_port:
-                preview_path = level_cfg.get("preview", {}).get("path", "/")
-                recorder.record_preview_ready(host_preview_port, path=preview_path)
+        # Capture the dynamic host port Docker assigned (may be None for non-preview levels)
+        host_preview_port = container.host_preview_port
 
-            # Score while the container is still alive (script checks need it)
-            scorer = Scorer(level_cfg.get("evaluation", {}), scoring_cfg)
-            breakdown = scorer.score(
-                tool_calls=recorder.tool_calls,
-                timed_out=timed_out,
-                container_exec=container.exec,
-            )
+        # Notify the dashboard of the real host port so the iframe uses it.
+        # This event is written after container.start() — the only point where
+        # Docker has assigned the ephemeral port.
+        if host_preview_port:
+            preview_path = level_cfg.get("preview", {}).get("path", "/")
+            recorder.record_preview_ready(host_preview_port, path=preview_path)
 
-            # ── Forced-retry loop ─────────────────────────────────────────────
-            # If enabled and the agent did not meet the completion threshold,
-            # give it another attempt — each retry costs penalty_per_retry points.
-            retries_used = 0
-            if retry_enabled and max_retries > 0:
-                while (
-                    breakdown.completion < completion_threshold
-                    and retries_used < max_retries
-                ):
-                    retries_used += 1
-                    logger.warning(
-                        "🔁 Forced retry %d/%d — completion %.0f%% < threshold %.0f%%",
-                        retries_used, max_retries,
-                        breakdown.completion * 100,
-                        completion_threshold * 100,
-                    )
-                    # Re-run the agent loop (container state is preserved)
-                    timed_out = not run_agent_loop(
-                        api=api,
-                        container=container,
-                        recorder=recorder,
-                        task_cfg=task_cfg,
-                        tools_list=level_cfg.get("tools", []),
-                        system_prompt=system_prompt,
-                    )
-                    breakdown = scorer.score(
-                        tool_calls=recorder.tool_calls,
-                        timed_out=timed_out,
-                        container_exec=container.exec,
-                    )
+        # Score while the container is still alive (script checks need it)
+        scorer = Scorer(level_cfg.get("evaluation", {}), scoring_cfg)
+        breakdown = scorer.score(
+            tool_calls=recorder.tool_calls,
+            timed_out=timed_out,
+            container_exec=container.exec,
+        )
 
-            # Apply accumulated retry penalty to the final breakdown
-            breakdown.penalty_retry = retries_used * penalty_per_retry
-            if retries_used:
-                logger.info(
-                    "Retry penalty applied: %d × %.1f = −%.1f pts",
-                    retries_used, penalty_per_retry, breakdown.penalty_retry,
+        # ── Forced-retry loop ─────────────────────────────────────────────
+        # If enabled and the agent did not meet the completion threshold,
+        # give it another attempt — each retry costs penalty_per_retry points.
+        retries_used = 0
+        if retry_enabled and max_retries > 0:
+            while (
+                breakdown.completion < completion_threshold
+                and retries_used < max_retries
+            ):
+                retries_used += 1
+                logger.warning(
+                    "🔁 Forced retry %d/%d — completion %.0f%% < threshold %.0f%%",
+                    retries_used, max_retries,
+                    breakdown.completion * 100,
+                    completion_threshold * 100,
+                )
+                # Re-run the agent loop (container state is preserved)
+                timed_out = not run_agent_loop(
+                    api=api,
+                    container=container,
+                    recorder=recorder,
+                    task_cfg=task_cfg,
+                    tools_list=level_cfg.get("tools", []),
+                    system_prompt=system_prompt,
+                )
+                breakdown = scorer.score(
+                    tool_calls=recorder.tool_calls,
+                    timed_out=timed_out,
+                    container_exec=container.exec,
                 )
 
-            score_summary = breakdown.summary()
+        # Apply accumulated retry penalty to the final breakdown
+        breakdown.penalty_retry = retries_used * penalty_per_retry
+        if retries_used:
+            logger.info(
+                "Retry penalty applied: %d × %.1f = −%.1f pts",
+                retries_used, penalty_per_retry, breakdown.penalty_retry,
+            )
+
+        score_summary = breakdown.summary()
+        result_duration_s = round(time.time() - recorder._started, 2)
+        preview_linger_seconds = _resolve_preview_linger_seconds(cfg, level_cfg, host_preview_port)
+        if preview_linger_seconds > 0:
+            preview_expires_at = time.time() + preview_linger_seconds
+
+        recorder.end(
+            score=score_summary,
+            timed_out=timed_out,
+            preview_linger_seconds=preview_linger_seconds,
+            preview_expires_at=preview_expires_at,
+        )
+        session_ended = True
+
+        if host_preview_port and preview_linger_seconds > 0:
+            logger.info(
+                "Keeping preview alive on http://localhost:%d for %ds",
+                host_preview_port,
+                preview_linger_seconds,
+            )
+            time.sleep(preview_linger_seconds)
 
     except ContainerError as exc:
         logger.error("Container error in level %s: %s", level_id, exc)
@@ -591,7 +637,16 @@ def run_level(
         logger.error("Unexpected error in level %s: %s", level_id, exc, exc_info=True)
         score_summary = {"error": str(exc), "total": 0}
     finally:
-        recorder.end(score=score_summary, timed_out=timed_out)
+        if not session_ended:
+            result_duration_s = round(time.time() - recorder._started, 2)
+            recorder.end(
+                score=score_summary,
+                timed_out=timed_out,
+                preview_linger_seconds=preview_linger_seconds,
+                preview_expires_at=preview_expires_at,
+            )
+        if container is not None:
+            container.stop()
 
     level_meta = level_cfg.get("level", {})
     result = {
@@ -609,10 +664,12 @@ def run_level(
         "score":              score_summary,
         "turns":              recorder.turn_count,
         "tool_calls_n":       len(recorder.tool_calls),
-        "duration_s":         round(time.time() - recorder._started, 2),
+        "duration_s":         result_duration_s,
         # Dynamic host port Docker assigned — only set for preview levels.
         # Consumers (dashboard iframe) use this; None means no preview.
         "host_preview_port":  host_preview_port,
+        "preview_linger_seconds": preview_linger_seconds,
+        "preview_expires_at": preview_expires_at,
     }
 
     if store is not None:
@@ -774,7 +831,15 @@ def main() -> None:
 
     # Collect levels to run
     if args.all_levels:
-        levels = sorted(framework_cfg.levels_dir.glob("*.yaml"))
+        levels = []
+        for candidate in sorted(framework_cfg.levels_dir.glob("*.yaml")):
+            try:
+                if load_level_config(candidate).is_deprecated:
+                    continue
+            except LevelValidationError as exc:
+                logger.error(str(exc))
+                sys.exit(1)
+            levels.append(candidate)
         if not levels:
             logger.error("No level files found in %s", framework_cfg.levels_dir)
             sys.exit(1)
@@ -783,9 +848,20 @@ def main() -> None:
         if not level_path.exists():
             logger.error("Level file not found: %s", level_path)
             sys.exit(1)
+        try:
+            load_level_config(level_path)
+        except LevelValidationError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
         levels = [level_path]
     else:
         logger.error("Specify --level <file> or --all-levels")
+        sys.exit(1)
+
+    try:
+        load_harness_config(harness_path)
+    except HarnessValidationError as exc:
+        logger.error(str(exc))
         sys.exit(1)
 
     store = Store(framework_cfg.db_path).init()

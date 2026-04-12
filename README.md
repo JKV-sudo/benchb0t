@@ -24,22 +24,45 @@ Level 1 ──► Level 2 ──► Level 3 ──► …
 ## Quick Start
 
 ```bash
-# 1. Clone & install dependencies
+# 1. Clone the repo
 git clone https://github.com/your-org/benchb0t
 cd benchb0t
-pip install openai docker pyyaml python-dotenv
 
-# 2. Configure your endpoint
+# 2. Create a Python 3.11+ environment and install benchb0t
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -e .
+
+# 3. Configure your endpoint
 cp .env.example .env
 # Edit .env and set BENCHBOT_BASE_URL + BENCHBOT_API_KEY
 
-# 3. Run a single level
-python -m framework.runner \
-  --level levels/l1-single-file.yaml \
-  --harness harnesses/slavko.yaml
+# 4. Make sure Docker is running, then run a single level
+benchbot validate levels/ harnesses/
 
-# 4. Run all levels
-python -m framework.runner --all-levels --harness harnesses/hermes.yaml
+# 5. Run a single level
+benchbot run \
+  --level levels/l1-single-file.yaml \
+  --harness harnesses/slavko.yaml \
+  --no-prompt
+
+# 6. Start the dashboard
+benchbot dash --host 0.0.0.0 --port 7860
+```
+
+Prerequisites:
+
+- Python `3.11+`
+- A reachable Docker daemon
+- An OpenAI-compatible LLM endpoint such as Ollama, LM Studio, vLLM, OpenRouter, or OpenAI
+
+If you prefer module entrypoints, `python3 -m framework.runner ...` and `python3 -m framework.dashboard ...` remain supported.
+
+For a containerized setup instead of a local Python environment:
+
+```bash
+docker compose up --build
 ```
 
 ---

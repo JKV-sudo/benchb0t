@@ -12,6 +12,8 @@ level:
   difficulty: 5
   category:   webapp
   tags:       [react, vite, webapp, creative, ui]
+  deprecated: true
+  replaced_by: l9-tattoo-studio
 
 container:
   image:       node:20-slim

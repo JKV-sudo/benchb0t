@@ -188,7 +188,12 @@ class Recorder:
         self._write(type="preview_ready", host_preview_port=host_port, preview_path=path)
         logger.info("Preview ready on host port %d (path=%s)", host_port, path)
 
-    def end(self, score: dict[str, Any] | None = None, timed_out: bool = False) -> None:
+    def end(
+        self,
+        score: dict[str, Any] | None = None,
+        timed_out: bool = False,
+        **metadata: Any,
+    ) -> None:
         """Write the session_end event, flush, and (optionally) compress."""
         duration = round(time.time() - self._started, 2)
         self._write(
@@ -198,6 +203,7 @@ class Recorder:
             duration_s=duration,
             timed_out=timed_out,
             score=score or {},
+            **metadata,
         )
         self._file.flush()
         self._file.close()

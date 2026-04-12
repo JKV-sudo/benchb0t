@@ -4,6 +4,9 @@ LABEL org.opencontainers.image.title="benchb0t"
 LABEL org.opencontainers.image.description="LLM agent benchmark framework"
 LABEL org.opencontainers.image.source="https://github.com/benchb0t/benchb0t"
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 # curl is needed by some level evaluation checks run in this image
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -11,12 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies first (layer cache)
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" 2>/dev/null || pip install --no-cache-dir -e .
+# Copy only the files needed to install the package first so dependency layers cache well.
+COPY pyproject.toml README.md ./
+COPY framework ./framework
 
-# Copy project (levels, harnesses, framework, config)
-COPY . .
+RUN python -m pip install --no-cache-dir .
+
+# Copy runtime data files after install.
+COPY config.yaml ./
+COPY levels ./levels
+COPY harnesses ./harnesses
 
 # Verify install
 RUN benchbot --version

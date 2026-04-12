@@ -31,7 +31,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from framework.config import FrameworkConfigError, LoadedFrameworkConfig, load_framework_config
+from framework.config import (
+    FrameworkConfigError,
+    LevelValidationError,
+    LoadedFrameworkConfig,
+    load_framework_config,
+    load_level_config,
+)
 from framework.store import Store
 
 logger = logging.getLogger(__name__)
@@ -139,23 +145,27 @@ def list_levels() -> JSONResponse:
     levels = []
     for p in sorted((_project_dir / "levels").glob("*.yaml")):
         try:
-            cfg  = yaml.safe_load(p.read_text())
-            lvl  = cfg.get("level", {})
-            task = cfg.get("task", {})
-            prev = cfg.get("preview", {})
+            level = load_level_config(p)
+            if level.is_deprecated:
+                continue
             levels.append({
                 "path":         str(p),
-                "id":           lvl.get("id", p.stem),
-                "name":         lvl.get("name", p.stem),
-                "difficulty":   lvl.get("difficulty", 1),
-                "category":     lvl.get("category", ""),
-                "instruction":  (task.get("instruction") or "").strip(),
-                "tools":        cfg.get("tools", []),
-                "max_turns":    task.get("max_turns", "?"),
-                "timeout_s":    task.get("timeout_s", "?"),
-                "preview_port": prev.get("port", ""),
-                "preview_path": prev.get("path", "/"),
+                "id":           level.level.id,
+                "name":         level.level.name,
+                "difficulty":   level.level.difficulty,
+                "category":     level.level.category,
+                "instruction":  level.task.instruction.strip(),
+                "tools":        list(level.tools),
+                "max_turns":    level.task.max_turns if level.task.max_turns is not None else "?",
+                "timeout_s":    level.task.timeout_s if level.task.timeout_s is not None else "?",
+                "preview_port": level.preview.port if level.preview else "",
+                "preview_path": level.preview.path if level.preview else "/",
             })
+        except LevelValidationError:
+            levels.append({"path": str(p), "id": p.stem, "name": p.stem,
+                           "difficulty": 1, "instruction": "", "tools": [],
+                           "max_turns": "?", "timeout_s": "?",
+                           "preview_port": "", "preview_path": "/"})
         except Exception:
             levels.append({"path": str(p), "id": p.stem, "name": p.stem,
                            "difficulty": 1, "instruction": "", "tools": [],

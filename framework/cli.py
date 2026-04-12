@@ -9,6 +9,7 @@ Usage
   benchbot run   --all-levels --harness harnesses/hermes.yaml --mode guided
   benchbot dash  [--host 0.0.0.0] [--port 7860]
   benchbot list              # list all available levels
+  benchbot validate levels/  # validate level YAML files
   benchbot export            # export run history to CSV / JSON
 
 Each sub-command delegates to the appropriate framework module so the
@@ -21,6 +22,14 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+
+from framework.config import (
+    LEVEL_FILENAME_RE,
+    HarnessValidationError,
+    LevelValidationError,
+    load_harness_config,
+    load_level_config,
+)
 
 
 # ── Sub-command handlers ──────────────────────────────────────────────────────
@@ -64,33 +73,41 @@ def _cmd_dash(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_list(args: argparse.Namespace) -> int:  # noqa: ARG001
+def _cmd_list(args: argparse.Namespace) -> int:
     """Print all available levels."""
-    import yaml
-    from pathlib import Path
-
     levels_dir = Path("levels")
     if not levels_dir.exists():
         print("No levels/ directory found. Run from the benchb0t project root.", file=sys.stderr)
         return 1
 
     rows = []
+    hidden_deprecated = 0
     for f in sorted(levels_dir.glob("*.yaml")):
         try:
-            d = yaml.safe_load(f.read_text())
-            lvl = d.get("level", {})
-            rows.append((
-                lvl.get("id", f.stem),
-                "★" * lvl.get("difficulty", 1),
-                lvl.get("category", "—"),
-                lvl.get("name", ""),
-                "✓" if d.get("modes") else "—",
-                str(d.get("preview", {}).get("port", "—")),
-            ))
+            level = load_level_config(f)
+            if level.is_deprecated and not args.include_deprecated:
+                hidden_deprecated += 1
+                continue
+            row = [
+                level.level.id,
+                "★" * level.level.difficulty,
+                level.level.category,
+                level.level.name,
+                "✓" if level.modes else "—",
+                str(level.preview.port if level.preview else "—"),
+            ]
+            if args.include_deprecated:
+                row.append("deprecated" if level.is_deprecated else "active")
+            rows.append(tuple(row))
         except Exception:
-            rows.append((f.stem, "?", "?", "?", "—", "—"))
+            row = [f.stem, "?", "?", "?", "—", "—"]
+            if args.include_deprecated:
+                row.append("invalid")
+            rows.append(tuple(row))
 
     hdr = ("ID", "DIFF", "CATEGORY", "NAME", "MODES", "PORT")
+    if args.include_deprecated:
+        hdr += ("STATE",)
     widths = [max(len(r[i]) for r in [hdr] + rows) for i in range(len(hdr))]
     sep = "  ".join("─" * w for w in widths)
 
@@ -100,7 +117,97 @@ def _cmd_list(args: argparse.Namespace) -> int:  # noqa: ARG001
     for row in rows:
         print("  " + "  ".join(v.ljust(widths[i]) for i, v in enumerate(row)))
     print()
-    print(f"  {len(rows)} levels found in levels/")
+    print(f"  {len(rows)} level{'s' if len(rows) != 1 else ''} shown from levels/")
+    if hidden_deprecated:
+        print(f"  {hidden_deprecated} deprecated level hidden; use --include-deprecated to show it")
+    print()
+    return 0
+
+
+def _iter_validate_files(target: Path) -> list[tuple[str, Path]]:
+    if target.is_dir():
+        if target.name == "levels":
+            return [("level", p) for p in sorted(target.glob("*.yaml"))]
+        if target.name == "harnesses":
+            return [("harness", p) for p in sorted(target.glob("*.yaml"))]
+        raise ValueError(f"Unsupported directory for validation: {target}")
+
+    if target.is_file():
+        if "levels" in target.parts:
+            return [("level", target)]
+        if "harnesses" in target.parts:
+            return [("harness", target)]
+
+        try:
+            load_level_config(target)
+            return [("level", target)]
+        except (LevelValidationError, FileNotFoundError):
+            pass
+        try:
+            load_harness_config(target)
+            return [("harness", target)]
+        except (HarnessValidationError, FileNotFoundError):
+            pass
+        raise ValueError(f"Could not determine validation type for {target}")
+
+    raise FileNotFoundError(f"Path not found: {target}")
+
+
+def _cmd_validate(args: argparse.Namespace) -> int:
+    """Validate level and harness YAML files."""
+    targets = [Path(p) for p in args.paths] if args.paths else [Path("levels"), Path("harnesses")]
+    errors: list[str] = []
+    warnings: list[str] = []
+    ok_count = 0
+    active_level_ids: dict[str, Path] = {}
+
+    for target in targets:
+        try:
+            items = _iter_validate_files(target)
+        except (ValueError, FileNotFoundError) as exc:
+            errors.append(str(exc))
+            continue
+
+        for kind, path in items:
+            try:
+                if kind == "level":
+                    level = load_level_config(path)
+                    ok_count += 1
+
+                    if not level.is_deprecated and not LEVEL_FILENAME_RE.match(path.name):
+                        errors.append(
+                            f"{path}: non-deprecated levels must match l{{nn}}-slug.yaml"
+                        )
+                    if level.is_deprecated:
+                        replacement = (
+                            f" -> use {level.level.replaced_by}"
+                            if level.level.replaced_by
+                            else ""
+                        )
+                        warnings.append(f"{path}: deprecated level{replacement}")
+                    else:
+                        seen = active_level_ids.get(level.level.id)
+                        if seen and seen != path:
+                            errors.append(
+                                f"{path}: duplicate active level id {level.level.id!r} "
+                                f"(already defined in {seen})"
+                            )
+                        active_level_ids[level.level.id] = path
+                else:
+                    load_harness_config(path)
+                    ok_count += 1
+            except (LevelValidationError, HarnessValidationError, FileNotFoundError) as exc:
+                errors.append(str(exc))
+
+    for warning in warnings:
+        print(f"WARN: {warning}")
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        print(f"\nValidation failed: {len(errors)} error(s), {len(warnings)} warning(s).", file=sys.stderr)
+        return 1
+
+    print(f"Validation passed: {ok_count} file(s), {len(warnings)} warning(s).")
     print()
     return 0
 
@@ -173,7 +280,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p_dash.add_argument("--config", type=Path, default=Path("config.yaml"))
 
     # ── list ─────────────────────────────────────────────────────────────────
-    sub.add_parser("list", help="List all available levels")
+    p_list = sub.add_parser("list", help="List all available levels")
+    p_list.add_argument(
+        "--include-deprecated",
+        action="store_true",
+        help="Include deprecated levels in the listing",
+    )
+
+    # ── validate ─────────────────────────────────────────────────────────────
+    p_val = sub.add_parser("validate", help="Validate level and harness YAML files")
+    p_val.add_argument(
+        "paths",
+        nargs="*",
+        metavar="PATH",
+        help="Files or directories to validate (default: levels harnesses)",
+    )
 
     # ── export ───────────────────────────────────────────────────────────────
     p_exp = sub.add_parser("export", help="Export run history to CSV or JSON")
@@ -196,6 +317,7 @@ def main() -> None:
         "run":    _cmd_run,
         "dash":   _cmd_dash,
         "list":   _cmd_list,
+        "validate": _cmd_validate,
         "export": _cmd_export,
     }
     sys.exit(handlers[args.command](args))

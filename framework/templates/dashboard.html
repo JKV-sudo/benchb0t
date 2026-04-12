@@ -624,8 +624,19 @@ footer {
   cursor: pointer;
   padding: 2px 6px;
 }
+.preview-open-btn {
+  background: none;
+  border: 1px solid var(--b3);
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 8px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
 .preview-reload-btn:hover { border-color: var(--y1); color: var(--y1); }
+.preview-open-btn:hover { border-color: var(--y1); color: var(--y1); }
 .term.provider-2 .preview-reload-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.term.provider-2 .preview-open-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .preview-frame { transition: opacity 1s; }
 .preview-frame {
   width: 100%;
@@ -634,6 +645,7 @@ footer {
   background: #fff;
   display: block;
 }
+.preview-frame-live { cursor: zoom-in; }
 
 /* ── SCORE BREAKDOWN ── */
 .term-score { flex-shrink: 0; background: var(--panel); border-top: 2px solid var(--b1); padding: 6px 10px; }
@@ -1613,13 +1625,13 @@ function buildTerminals(levels) {
             <span id="prev-lbl-${l.id}">🌐 PREVIEW — waiting for server…</span>
             <div style="display:flex;gap:6px;align-items:center">
               <span id="prev-status-dot-${l.id}" class="pf-dot pending" title="server status"></span>
-              <a id="prev-open-${l.id}"
-                 href="http://localhost:${l.preview_port}${l.preview_path||'/'}"
-                 target="_blank" rel="noopener"
-                 style="font-family:var(--font);font-size:8px;color:var(--dim);text-decoration:none;
-                        border:1px solid var(--b3);padding:2px 6px;pointer-events:none">
-                ↗ OPEN
-              </a>
+              <button id="prev-open-${l.id}"
+                 class="preview-open-btn"
+                 onclick="openPreview('${l.id}')"
+                 disabled
+                 title="Open the live preview in a new tab">
+                ↗ OPEN IN TAB
+              </button>
               <button class="preview-reload-btn" onclick="reloadPreview('${l.id}')">↺</button>
             </div>
           </div>
@@ -1633,7 +1645,7 @@ function buildTerminals(levels) {
             src=""
             class="preview-frame"
             style="display:none"
-            sandbox="allow-scripts allow-same-origin allow-forms"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             title="live preview">
           </iframe>
         </div>` : ''}
@@ -1683,6 +1695,18 @@ function toggleBrief(lid) {
   wrap.classList.toggle('open');
 }
 
+function getPreviewUrl(lid) {
+  const t = terminals[lid];
+  if (!t?.previewPort) return '';
+  return `http://localhost:${t.previewPort}${t.previewPath || '/'}`;
+}
+
+function openPreview(lid) {
+  const url = getPreviewUrl(lid);
+  if (!url) return;
+  window.open(url, '_blank', 'noopener');
+}
+
 function reloadPreview(lid) {
   const frame = document.getElementById('prev-' + lid);
   if (!frame) return;
@@ -1698,6 +1722,8 @@ function reloadPreview(lid) {
 // Polls /api/preview-status every 2s until the server inside the container
 // responds, then shows the iframe.
 const _previewPollers = {}; // lid → intervalId
+const _previewCountdownTimers = {}; // lid → intervalId
+const _previewShutdownTimers = {}; // lid → timeoutId
 
 function startPreviewPoller(lid, port, path) {
   const strip = document.getElementById('prev-strip-' + lid);
@@ -1727,8 +1753,17 @@ function startPreviewPoller(lid, port, path) {
         if (dot)   { dot.className = 'pf-dot ok'; }
         if (lbl)   { lbl.textContent = `🌐 LIVE — localhost:${port}${path}`; }
         if (wait)  { wait.style.display = 'none'; }
-        if (frame) { frame.src = url; frame.style.display = 'block'; }
-        if (open)  { open.href = url; open.style.color = 'var(--y2)'; open.style.pointerEvents = 'auto'; }
+        if (frame) {
+          frame.src = url;
+          frame.style.display = 'block';
+          frame.classList.add('preview-frame-live');
+          frame.title = 'live preview — double click to open in a new tab';
+          frame.ondblclick = () => openPreview(lid);
+        }
+        if (open)  {
+          open.disabled = false;
+          open.style.color = 'var(--y2)';
+        }
       } else {
         // Still waiting
         if (dot) dot.className = 'pf-dot pending';
@@ -1756,6 +1791,80 @@ function stopPreviewPoller(lid) {
     clearInterval(_previewPollers[lid]);
     delete _previewPollers[lid];
   }
+}
+
+function clearPreviewLifecycleTimers(lid) {
+  if (_previewCountdownTimers[lid]) {
+    clearInterval(_previewCountdownTimers[lid]);
+    delete _previewCountdownTimers[lid];
+  }
+  if (_previewShutdownTimers[lid]) {
+    clearTimeout(_previewShutdownTimers[lid]);
+    delete _previewShutdownTimers[lid];
+  }
+}
+
+function setPreviewOffline(lid, message = '🌐 preview offline (container stopped)') {
+  clearPreviewLifecycleTimers(lid);
+  stopPreviewPoller(lid);
+
+  const strip = document.getElementById('prev-strip-' + lid);
+  const lbl = document.getElementById('prev-lbl-' + lid);
+  const frame = document.getElementById('prev-' + lid);
+  const open = document.getElementById('prev-open-' + lid);
+
+  if (strip) strip.style.borderTop = '2px solid var(--y3)';
+  if (lbl) lbl.textContent = message;
+  if (frame) {
+    frame.style.opacity = '0.35';
+    frame.style.pointerEvents = 'none';
+    frame.classList.remove('preview-frame-live');
+  }
+  if (open) {
+    open.disabled = true;
+    open.style.color = 'var(--dim)';
+  }
+}
+
+function armPreviewExpiry(lid, expiresAtMs) {
+  clearPreviewLifecycleTimers(lid);
+
+  const strip = document.getElementById('prev-strip-' + lid);
+  const lbl = document.getElementById('prev-lbl-' + lid);
+  const frame = document.getElementById('prev-' + lid);
+  const open = document.getElementById('prev-open-' + lid);
+
+  if (strip) strip.style.borderTop = '2px solid var(--y2)';
+  if (frame) {
+    frame.style.opacity = '1';
+    frame.style.pointerEvents = 'auto';
+  }
+  const isLiveNow = frame && frame.style.display !== 'none';
+  if (open) {
+    open.disabled = !isLiveNow;
+    open.style.color = isLiveNow ? 'var(--y2)' : 'var(--dim)';
+  }
+
+  const updateLabel = () => {
+    const remainingSeconds = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+    if (remainingSeconds <= 0) {
+      setPreviewOffline(lid);
+      return;
+    }
+    const isLive = frame && frame.style.display !== 'none';
+    if (lbl) {
+      lbl.textContent = isLive
+        ? `🌐 LIVE FOR ${remainingSeconds}s — open in tab ↗`
+        : `⏳ waiting for server — ${remainingSeconds}s left`;
+    }
+  };
+
+  updateLabel();
+  _previewCountdownTimers[lid] = setInterval(updateLabel, 1000);
+  _previewShutdownTimers[lid] = setTimeout(
+    () => setPreviewOffline(lid),
+    Math.max(0, expiresAtMs - Date.now()),
+  );
 }
 
 function bumpTurnCounter(lid) {
@@ -1815,6 +1924,7 @@ function onEvent(ev) {
   // ── session_start ──────────────────────────────────────────────────────────
   if (ev.type === 'session_start' && lid) {
     curLevelId = lid;
+    clearPreviewLifecycleTimers(lid);
     const el = document.getElementById('term-' + lid);
     if (el) {
       el.classList.remove('is-done');
@@ -1857,6 +1967,31 @@ function onEvent(ev) {
 
     appendToTerm(lid, '<div class="tl info"><span class="lc">── SESSION START ──</span></div>');
 
+    const prevStrip = document.getElementById('prev-strip-' + lid);
+    const prevLbl = document.getElementById('prev-lbl-' + lid);
+    const prevFrame = document.getElementById('prev-' + lid);
+    const prevWait = document.getElementById('prev-wait-' + lid);
+    const prevDot = document.getElementById('prev-status-dot-' + lid);
+    const prevOpen = document.getElementById('prev-open-' + lid);
+    if (prevStrip) prevStrip.style.borderTop = '2px solid var(--b2)';
+    if (prevLbl && terminals[lid]?.previewPort) {
+      prevLbl.textContent = `⏳ waiting for server on :${terminals[lid].previewPort}…`;
+    }
+    if (prevFrame) {
+      prevFrame.style.opacity = '1';
+      prevFrame.style.pointerEvents = 'auto';
+      prevFrame.classList.remove('preview-frame-live');
+      prevFrame.ondblclick = null;
+      prevFrame.src = '';
+      prevFrame.style.display = 'none';
+    }
+    if (prevWait) prevWait.style.display = 'flex';
+    if (prevDot) prevDot.className = 'pf-dot pending';
+    if (prevOpen) {
+      prevOpen.disabled = true;
+      prevOpen.style.color = 'var(--dim)';
+    }
+
     // Preview poller is NOT started here — we wait for preview_ready which
     // carries the actual Docker-assigned host port.  The static YAML port is
     // a container-internal port that is not reachable from the host.
@@ -1878,7 +2013,10 @@ function onEvent(ev) {
     // Update the "OPEN" link href and the "waiting" label port number
     const openLink = document.getElementById('prev-open-' + lid);
     const waitDiv  = document.getElementById('prev-wait-' + lid);
-    if (openLink) openLink.href = `http://localhost:${hostPort}${path}`;
+    if (openLink) {
+      openLink.disabled = true;
+      openLink.title = `Open http://localhost:${hostPort}${path} in a new tab`;
+    }
     if (waitDiv) {
       const span = waitDiv.querySelector('span');
       if (span) span.textContent = `WAITING FOR SERVER ON :${hostPort}`;
@@ -2082,22 +2220,21 @@ function onEvent(ev) {
       clearActiveSession();
     }
 
-    // Stop any running preview poller for this level
-    stopPreviewPoller(lid);
-
-    // Freeze preview strip — container stops shortly after session_end.
-    // Keep iframe + open link visible so user can inspect before it goes dark.
     const prevStrip = document.getElementById('prev-strip-' + lid);
     if (prevStrip) {
-      const lbl = document.getElementById('prev-lbl-' + lid);
-      if (lbl) lbl.textContent = '⚠ SERVER STOPPING — grab it now ↗';
-      prevStrip.style.borderTop = '2px solid var(--y3)';
-      // After 8s the container is gone — dim the iframe
-      setTimeout(() => {
-        const fr = document.getElementById('prev-' + lid);
-        if (fr) { fr.style.opacity = '0.35'; fr.style.pointerEvents = 'none'; }
-        if (lbl) lbl.textContent = '🌐 preview offline (container stopped)';
-      }, 8000);
+      const previewLingerSeconds = Math.max(0, Number(ev.preview_linger_seconds || 0));
+      const previewExpiresAtMs = ev.preview_expires_at
+        ? Number(ev.preview_expires_at) * 1000
+        : 0;
+
+      if (previewLingerSeconds > 0 && previewExpiresAtMs > Date.now()) {
+        armPreviewExpiry(lid, previewExpiresAtMs);
+      } else {
+        setPreviewOffline(lid);
+      }
+    } else {
+      stopPreviewPoller(lid);
+      clearPreviewLifecycleTimers(lid);
     }
 
     curLevelId = null;

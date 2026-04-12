@@ -2,8 +2,14 @@
 .benchb0t_creds.json
 .env
 
+# local OS / temp noise
+.DS_Store
+.fuse_hidden*
+
 # runtime output
 runs/
+benchb0t.db
+benchb0t.db-*
 __pycache__/
 *.pyc
 *.agentlog

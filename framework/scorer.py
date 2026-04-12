@@ -222,19 +222,24 @@ class Scorer:
         cid    = criterion["id"]
         weight = float(criterion.get("weight", 1.0))
         check  = criterion.get("check", "")
+        criterion_eval_type = criterion.get("type", eval_type)
 
         try:
-            if eval_type == "script":
+            if criterion_eval_type == "script":
                 passed, notes = self._check_script(check, container_exec)
-            elif eval_type == "exact_match":
+            elif criterion_eval_type == "exact_match":
                 passed, notes = self._check_exact_match(check, tool_calls)
-            elif eval_type == "llm_judge":
+            elif criterion_eval_type == "llm_judge":
                 passed, notes = self._check_llm_judge(
                     criterion.get("description", check), judge_fn
                 )
             else:
-                logger.warning("Unknown eval type '%s', treating as failed", eval_type)
-                passed, notes = False, f"Unknown eval type: {eval_type}"
+                logger.warning(
+                    "Unknown eval type '%s' for criterion %s, treating as failed",
+                    criterion_eval_type,
+                    cid,
+                )
+                passed, notes = False, f"Unknown eval type: {criterion_eval_type}"
         except Exception as exc:  # noqa: BLE001
             logger.error("Criterion %s evaluation error: %s", cid, exc)
             passed, notes = False, str(exc)

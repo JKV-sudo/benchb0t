@@ -7,6 +7,7 @@ framework:
   log_level: INFO           # DEBUG | INFO | WARNING | ERROR
   runs_dir: runs            # relative to project root
   max_parallel_levels: 1    # increase for parallel level execution
+  preview_linger_seconds: 60  # keep preview containers alive after scoring for manual review
 
 scoring:
   weights:
