@@ -5,6 +5,8 @@
 
 ---
 
+![Beschreibung](pic1.png)
+
 ## Concept
 
 benchb0t treats each benchmark task as a **level** in a game.
