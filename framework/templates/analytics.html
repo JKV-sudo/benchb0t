@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>benchb0t · BENCHB0T-DEX</title>
+<!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 /* ── App theme (matches dashboard + builder) ── */
@@ -432,6 +433,7 @@ tr.timed-out .run-id::after { content: ' ⏱'; color: var(--red); }
   </div>
   <div class="hdr-r">
     <a class="nav-lnk" href="/builder">BUILDER</a>
+    <a class="nav-lnk" href="/history">HISTORY</a>
     <a class="nav-lnk" href="/">← LIVE</a>
   </div>
 </header>
@@ -1133,9 +1135,7 @@ function setBar(id, pct) {
   const el = document.getElementById(id);
   if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+// esc() function consolidated to shared-utils.js for DRY
 
 load();
 

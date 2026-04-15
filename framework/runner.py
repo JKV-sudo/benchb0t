@@ -30,7 +30,6 @@ import argparse
 import json
 import logging
 import os
-import signal
 import sys
 import time
 from pathlib import Path
@@ -39,6 +38,12 @@ from typing import Any
 from dotenv import load_dotenv
 
 from framework.api import AgentAPI
+from framework.artifacts import (
+    capture_preview_screenshot as capture_preview_screenshot_artifact,
+    run_artifacts_dir,
+    save_container_snapshot as save_container_snapshot_artifact,
+    save_result_bundle as save_result_bundle_artifact,
+)
 from framework.config import (
     FrameworkConfig,
     FrameworkConfigError,
@@ -53,8 +58,7 @@ from framework.container import LevelContainer, ContainerError
 from framework.recorder import Recorder
 from framework.scorer import Scorer
 from framework.store import Store
-
-# ── Logging setup ─────────────────────────────────────────────────────────────
+from framework.types import RunResult
 
 def _configure_logging(level: str = "INFO") -> None:
     logging.basicConfig(
@@ -65,8 +69,6 @@ def _configure_logging(level: str = "INFO") -> None:
 
 logger = logging.getLogger(__name__)
 
-
-# ── Tool definitions exposed to the agent ─────────────────────────────────────
 
 TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "bash": {
@@ -402,8 +404,14 @@ def run_agent_loop(
             call_id   = tc.get("id", "")
             try:
                 args = json.loads(fn.get("arguments", "{}"))
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
+                # Agent generated malformed JSON for tool arguments — this is a bug
+                # Record the error and continue so the agent sees the failure
                 args = {}
+                logger.error(
+                    "Tool %s has malformed JSON arguments (call_id=%s): %s",
+                    tool_name, call_id, exc
+                )
 
             cid = recorder.record_tool_call(tool_name, args, call_id=call_id)
 
@@ -458,7 +466,10 @@ def run_level(
     framework_cfg: LoadedFrameworkConfig,
     store: "Store | None" = None,
     mode: str = "unguided",
-) -> dict[str, Any]:
+    capture_preview_screenshot: bool = False,
+    save_result_bundle: bool = False,
+    save_container_snapshot: bool = False,
+) -> RunResult:
     """
     Run a single level and return a result dict with score + metadata.
 
@@ -506,6 +517,9 @@ def run_level(
     provider_label = os.getenv("BENCHBOT_PROVIDER_LABEL") or os.getenv("BENCHBOT_MODEL", "") or harness_name
     panel_id = f"p{provider_slot}--{level_id}"
     container: LevelContainer | None = None
+    preview_path = level_cfg.get("preview", {}).get("path", "/")
+    artifact_dir: Path | None = None
+    artifacts: list[dict[str, Any]] = []
 
     try:
         recorder.start(
@@ -558,7 +572,6 @@ def run_level(
         # This event is written after container.start() — the only point where
         # Docker has assigned the ephemeral port.
         if host_preview_port:
-            preview_path = level_cfg.get("preview", {}).get("path", "/")
             recorder.record_preview_ready(host_preview_port, path=preview_path)
 
         # Score while the container is still alive (script checks need it)
@@ -608,17 +621,54 @@ def run_level(
                 retries_used, penalty_per_retry, breakdown.penalty_retry,
             )
 
-        score_summary = breakdown.summary()
+        score_summary = breakdown.to_score_summary()
         result_duration_s = round(time.time() - recorder._started, 2)
         preview_linger_seconds = _resolve_preview_linger_seconds(cfg, level_cfg, host_preview_port)
         if preview_linger_seconds > 0:
             preview_expires_at = time.time() + preview_linger_seconds
+
+        if capture_preview_screenshot or save_result_bundle or save_container_snapshot:
+            artifact_dir = run_artifacts_dir(runs_dir, recorder.run_id)
+
+        if artifact_dir and host_preview_port and capture_preview_screenshot:
+            screenshot = capture_preview_screenshot_artifact(
+                host_port=host_preview_port,
+                preview_path=preview_path,
+                dest_path=artifact_dir / "preview.png",
+            )
+            if screenshot:
+                artifacts.append(screenshot)
+                recorder.record_artifact(
+                    screenshot["kind"],
+                    screenshot["path"],
+                    label=screenshot["label"],
+                    url=screenshot.get("url", ""),
+                    size_bytes=screenshot.get("size_bytes", 0),
+                )
+
+        if artifact_dir and save_container_snapshot:
+            snapshot = save_container_snapshot_artifact(
+                container=container,
+                artifact_dir=artifact_dir,
+                level_id=level_id,
+                run_id=recorder.run_id,
+            )
+            if snapshot:
+                artifacts.append(snapshot)
+                recorder.record_artifact(
+                    snapshot["kind"],
+                    snapshot["path"],
+                    label=snapshot["label"],
+                    image_ref=snapshot.get("image_ref", ""),
+                    size_bytes=snapshot.get("size_bytes", 0),
+                )
 
         recorder.end(
             score=score_summary,
             timed_out=timed_out,
             preview_linger_seconds=preview_linger_seconds,
             preview_expires_at=preview_expires_at,
+            artifacts=artifacts,
         )
         session_ended = True
 
@@ -644,38 +694,50 @@ def run_level(
                 timed_out=timed_out,
                 preview_linger_seconds=preview_linger_seconds,
                 preview_expires_at=preview_expires_at,
+                artifacts=artifacts,
             )
         if container is not None:
             container.stop()
 
     level_meta = level_cfg.get("level", {})
-    result = {
-        "run_id":             recorder.run_id,
-        "ts":                 recorder._started,
-        "level_id":           level_id,
-        "level_name":         level_meta.get("name", level_id),
-        "difficulty":         level_meta.get("difficulty", 1),
-        "harness":            harness_name,
-        "mode":               mode,
-        "model":              os.getenv("BENCHBOT_MODEL", ""),
-        "base_url":           os.getenv("BENCHBOT_BASE_URL", ""),
-        "log_path":           str(recorder.path),
-        "timed_out":          timed_out,
-        "score":              score_summary,
-        "turns":              recorder.turn_count,
-        "tool_calls_n":       len(recorder.tool_calls),
-        "duration_s":         result_duration_s,
+    result = RunResult(
+        run_id=recorder.run_id,
+        ts=recorder._started,
+        level_id=level_id,
+        level_name=level_meta.get("name", level_id),
+        difficulty=level_meta.get("difficulty", 1),
+        harness=harness_name,
+        mode=mode,
+        model=os.getenv("BENCHBOT_MODEL", ""),
+        base_url=os.getenv("BENCHBOT_BASE_URL", ""),
+        log_path=str(recorder.path),
+        timed_out=timed_out,
+        score=score_summary,
+        turns=recorder.turn_count,
+        tool_calls_n=len(recorder.tool_calls),
+        duration_s=result_duration_s,
         # Dynamic host port Docker assigned — only set for preview levels.
         # Consumers (dashboard iframe) use this; None means no preview.
-        "host_preview_port":  host_preview_port,
-        "preview_linger_seconds": preview_linger_seconds,
-        "preview_expires_at": preview_expires_at,
-    }
+        host_preview_port=host_preview_port,
+        preview_linger_seconds=preview_linger_seconds,
+        preview_expires_at=preview_expires_at,
+        artifacts=artifacts,
+    )
+
+    if artifact_dir and save_result_bundle:
+        bundle = save_result_bundle_artifact(
+            artifact_dir=artifact_dir,
+            run_id=recorder.run_id,
+            result=result.to_dict(),
+            log_path=recorder.path,
+        )
+        if bundle:
+            artifacts.append(bundle)
 
     if store is not None:
-        store.record_run(result)
+        store.record_run(result.to_dict())
 
-    _print_result(result)
+    _print_result(result.to_dict())
     return result
 
 
@@ -707,6 +769,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config",     type=Path, default=Path("config.yaml"), help="Framework config (default: config.yaml)")
     p.add_argument("--env",        type=Path, default=Path(".env"), help=".env file to load (default: .env)")
     p.add_argument("--no-prompt",  action="store_true", help="Skip the interactive boot screen (use ENV vars directly)")
+    p.add_argument(
+        "--capture-preview-screenshot",
+        action="store_true",
+        help="Capture a preview screenshot for levels that start a web server",
+    )
+    p.add_argument(
+        "--save-result-bundle",
+        action="store_true",
+        help="Save a ZIP bundle with result.json, agentlog, and saved artifacts",
+    )
+    p.add_argument(
+        "--save-container-snapshot",
+        action="store_true",
+        help="Commit the final container state to a Docker image and save metadata",
+    )
     p.add_argument(
         "--mode",
         choices=["guided", "unguided"],
@@ -872,7 +949,11 @@ def main() -> None:
             level_path,
             harness_path,
             framework_cfg,
-            store=store, mode=args.mode,
+            store=store,
+            mode=args.mode,
+            capture_preview_screenshot=args.capture_preview_screenshot,
+            save_result_bundle=args.save_result_bundle,
+            save_container_snapshot=args.save_container_snapshot,
         )
         results.append(result)
 

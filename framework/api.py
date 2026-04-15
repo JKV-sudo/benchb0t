@@ -60,8 +60,6 @@ class AgentAPI:
             "AgentAPI initialised — base_url=%s model=%s", base_url, model
         )
 
-    # ── Public interface ──────────────────────────────────────────────────────
-
     def chat(
         self,
         messages: list[dict[str, Any]],
@@ -230,8 +228,6 @@ class AgentAPI:
             raise RuntimeError(f"API connection error: {exc}") from exc
         except APIError as exc:
             raise RuntimeError(f"API error {exc.status_code}: {exc.message}") from exc
-
-    # ── Factory ───────────────────────────────────────────────────────────────
 
     @classmethod
     def from_harness(cls, harness: dict[str, Any], defaults: dict[str, Any]) -> "AgentAPI":

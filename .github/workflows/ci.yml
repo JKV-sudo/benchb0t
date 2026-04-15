@@ -34,4 +34,4 @@ jobs:
         run: PYTHONPYCACHEPREFIX=/tmp/benchb0t-pycache python -m py_compile framework/*.py
 
       - name: Run tests
-        run: pytest -q
+        run: pytest -q --cov-report=xml

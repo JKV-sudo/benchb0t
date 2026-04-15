@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>benchb0t · history</title>
+<!-- Shared theme variables and utilities (consolidated for DRY) -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:    #0a0800; --panel: #100d00; --panel2: #151000;
+  --b1:    #241e00; --b2:    #3a3000; --b3:    #4a3f00;
+  --y1:    #ffd700; --y2:    #ffb300; --y3:    #ff8c00;
+  --ydk:   #7a6000; --text:  #ffe87a; --dim:   #5a4a10; --dim2: #3a3000;
+  --green: #39ff14; --red:   #ff3a3a; --cyan:  #00e5ff; --violet: #b36cff;
+  --font: 'Press Start 2P', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10px;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,0,0,.07) 3px, rgba(0,0,0,.07) 4px
+  );
+}
+a { color: var(--y2); text-decoration: none; }
+a:hover { color: var(--y1); }
+
+header {
+  background: var(--panel);
+  border-bottom: 3px solid var(--y1);
+  padding: 0 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 20px rgba(255,215,0,.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  color: var(--y1);
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px var(--y1);
+}
+.logo-sub {
+  font-size: 5px;
+  color: var(--ydk);
+  letter-spacing: 4px;
+}
+.sep { color: var(--b3); }
+.hdr-r {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.nav-lnk {
+  font-size: 7px;
+  color: var(--dim);
+  letter-spacing: 2px;
+}
+.nav-lnk:hover,
+.nav-lnk.active { color: var(--y1); }
+
+.led-row { display: flex; gap: 5px; align-items: center; }
+.led {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--b1);
+}
+.led-y { background: var(--y1); box-shadow: 0 0 6px var(--y1); }
+.led-g { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2.4s ease-in-out infinite; }
+.led-o { background: var(--y3); box-shadow: 0 0 5px var(--y3); }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+.page {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding: 22px 20px 48px;
+}
+.toolbar {
+  background: var(--panel);
+  border: 2px solid var(--b2);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.toolbar-title {
+  width: 100%;
+  font-size: 6px;
+  letter-spacing: 3px;
+  color: var(--ydk);
+  text-transform: uppercase;
+}
+.search {
+  min-width: 260px;
+  background: var(--bg);
+  border: 2px solid var(--b2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 7px;
+  padding: 8px 10px;
+  outline: none;
+}
+.search:focus { border-color: var(--y1); }
+.filter-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-btn,
+.refresh-btn,
+.detail-link {
+  background: transparent;
+  border: 2px solid var(--b2);
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 6px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.filter-btn:hover,
+.refresh-btn:hover,
+.detail-link:hover,
+.filter-btn.active {
+  border-color: var(--y1);
+  color: var(--y1);
+}
+.stats {
+  margin-left: auto;
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.7;
+  text-align: right;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
+}
+aside,
+main {
+  min-height: 0;
+  overflow: auto;
+}
+aside {
+  background: var(--panel);
+  border: 2px solid var(--b2);
+  padding: 14px 12px;
+}
+main::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+.timeline::-webkit-scrollbar { width: 3px; }
+main::-webkit-scrollbar-thumb,
+aside::-webkit-scrollbar-thumb,
+.timeline::-webkit-scrollbar-thumb { background: var(--b2); }
+
+.section-title {
+  font-size: 6px;
+  letter-spacing: 3px;
+  color: var(--ydk);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before { content: '▶'; color: var(--y2); }
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--b2);
+  margin-left: 6px;
+}
+
+.run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.run-card {
+  background: var(--panel2);
+  border: 2px solid var(--b2);
+  padding: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.run-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--ydk);
+}
+.run-card:hover,
+.run-card.active {
+  border-color: var(--y1);
+  box-shadow: 0 0 14px rgba(255,215,0,.08);
+}
+.run-card:hover::before,
+.run-card.active::before {
+  background: var(--y1);
+  box-shadow: 0 0 8px rgba(255,215,0,.4);
+}
+.run-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 7px;
+  margin-bottom: 8px;
+}
+.run-id { color: var(--y2); }
+.run-score { color: var(--y1); }
+.run-meta {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.9;
+}
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.badge {
+  font-size: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 1px solid var(--b3);
+  color: var(--dim);
+  padding: 3px 6px;
+}
+.badge.good { color: var(--green); border-color: rgba(57,255,20,.35); }
+.badge.warn { color: var(--red); border-color: rgba(255,58,58,.35); }
+.badge.snap { color: var(--violet); border-color: rgba(179,108,255,.35); }
+
+.detail-shell {
+  display: grid;
+  gap: 14px;
+}
+.detail-card {
+  background: var(--panel);
+  border: 2px solid var(--b2);
+  padding: 14px;
+}
+.detail-title {
+  font-size: 8px;
+  color: var(--y1);
+  margin-bottom: 7px;
+  letter-spacing: 1px;
+}
+.detail-meta {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.9;
+}
+.detail-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.compare-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.compare-btn {
+  background: transparent;
+  border: 2px solid var(--b2);
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.compare-btn:hover,
+.compare-btn.active {
+  border-color: var(--y1);
+  color: var(--y1);
+}
+.compare-btn-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--dim);
+  line-height: 1.8;
+}
+.compare-summary {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.9;
+  margin-bottom: 12px;
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.compare-metric {
+  background: var(--panel2);
+  border: 2px solid var(--b2);
+  padding: 10px;
+  position: relative;
+}
+.compare-metric::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--ydk);
+}
+.compare-metric.best-left::before,
+.compare-metric.best-right::before {
+  background: var(--y1);
+}
+.compare-metric-label {
+  font-size: 5px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.compare-metric-values {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.compare-metric-side {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+.compare-metric-side strong {
+  display: block;
+  color: var(--text);
+  font-size: 7px;
+  margin-bottom: 2px;
+}
+.compare-metric-side.is-better strong {
+  color: var(--y1);
+}
+.compare-metric-vs {
+  font-size: 5px;
+  color: var(--ydk);
+  letter-spacing: 1px;
+}
+.compare-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow: auto;
+}
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 34px 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+.compare-row.diverged .compare-cell {
+  border-color: var(--y1);
+}
+.compare-cell {
+  background: var(--panel2);
+  border: 2px solid var(--b2);
+  padding: 8px;
+}
+.compare-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5px;
+  color: var(--ydk);
+  letter-spacing: 1px;
+}
+.compare-side-tag {
+  font-size: 5px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.compare-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.compare-step-type {
+  font-size: 5px;
+  color: var(--text);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.compare-step-time {
+  font-size: 5px;
+  color: var(--dim);
+}
+.compare-step-body {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.artifact-card {
+  background: var(--panel2);
+  border: 2px solid var(--b2);
+  padding: 10px;
+  position: relative;
+}
+.artifact-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--y2);
+}
+.artifact-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 5px;
+  margin-bottom: 7px;
+}
+.artifact-kind {
+  color: var(--y1);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.artifact-size { color: var(--dim); }
+.artifact-name {
+  font-size: 6px;
+  color: var(--text);
+  line-height: 1.8;
+}
+.artifact-img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  margin-top: 8px;
+  border: 2px solid var(--b2);
+  background: #fff;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow: auto;
+}
+.step {
+  border-left: 3px solid var(--b2);
+  background: var(--panel2);
+  padding: 8px 10px;
+}
+.step.session { border-left-color: var(--violet); }
+.step.messages { border-left-color: var(--y1); }
+.step.tools { border-left-color: var(--cyan); }
+.step.preview { border-left-color: var(--green); }
+.step.artifacts { border-left-color: var(--y2); }
+.step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.step-type {
+  font-size: 5px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.step-time {
+  font-size: 5px;
+  color: var(--dim2);
+}
+.step-label {
+  font-size: 6px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.step-body {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.empty {
+  border: 2px dashed var(--b2);
+  color: var(--dim);
+  padding: 14px;
+  font-size: 6px;
+  line-height: 2;
+}
+
+@media (max-width: 980px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    max-height: 42vh;
+  }
+  .compare-row {
+    grid-template-columns: 1fr;
+  }
+  .compare-mid {
+    min-height: 22px;
+  }
+  .stats {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="led-row">
+    <div class="led led-y"></div>
+    <div class="led led-g"></div>
+    <div class="led led-o"></div>
+  </div>
+  <span class="sep">│</span>
+  <div>
+    <div class="logo">benchb0t</div>
+    <div class="logo-sub">RUN ARCHIVE · HISTORY</div>
+  </div>
+  <div class="hdr-r">
+    <a class="nav-lnk" href="/builder">BUILDER</a>
+    <a class="nav-lnk" href="/analytics">ANALYTICS</a>
+    <a class="nav-lnk active" href="/history">HISTORY</a>
+    <a class="nav-lnk" href="/">← LIVE</a>
+  </div>
+</header>
+
+<div class="page">
+  <div class="toolbar">
+    <div class="toolbar-title">browse saved runs, screenshots, bundles, and snapshots</div>
+    <input id="query" class="search" type="text" placeholder="search by level, model, run id" oninput="setQuery(this.value)">
+    <div class="filter-row" id="filter-row"></div>
+    <button class="refresh-btn" onclick="loadHistory()">Refresh</button>
+    <div class="stats" id="stats">Loading…</div>
+  </div>
+
+  <div class="content">
+    <aside>
+      <div class="section-title">Recent Runs</div>
+      <div id="run-list" class="run-list">
+        <div class="empty">Loading run history…</div>
+      </div>
+    </aside>
+
+    <main>
+      <div id="detail" class="detail-shell">
+        <div class="empty">Select a run to inspect saved data.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const state = {
+  runs: [],
+  selectedRunId: '',
+  compareRunId: '',
+  filter: 'all',
+  query: '',
+  detailPayload: null,
+  comparePayload: null,
+};
+
+// esc() function consolidated to shared-utils.js for DRY
+
+function formatStamp(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatClock(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toISOString().slice(11, 19);
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (!n) return '0 B';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function replayGroup(type) {
+  if (type === 'session_start' || type === 'session_end') return 'session';
+  if (type === 'assistant_message' || type === 'user_message') return 'messages';
+  if (type === 'tool_call' || type === 'tool_result') return 'tools';
+  if (type === 'preview_ready') return 'preview';
+  if (type === 'artifact') return 'artifacts';
+  return 'other';
+}
+
+function stepTypeLabel(type) {
+  if (type === 'session_start') return 'session';
+  if (type === 'session_end') return 'score';
+  if (type === 'assistant_message') return 'assistant';
+  if (type === 'user_message') return 'user';
+  if (type === 'tool_call') return 'tool call';
+  if (type === 'tool_result') return 'tool result';
+  if (type === 'preview_ready') return 'preview';
+  if (type === 'artifact') return 'artifact';
+  return type.replace(/_/g, ' ');
+}
+
+function matchesFilter(run) {
+  const counts = run.artifact_counts || {};
+  if (state.filter === 'screenshots') return Number(counts.screenshots || 0) > 0;
+  if (state.filter === 'bundles') return Number(counts.bundles || 0) > 0;
+  if (state.filter === 'snapshots') return Number(counts.snapshots || 0) > 0;
+  if (state.filter === 'timeouts') return !!run.timed_out;
+  return true;
+}
+
+function matchesQuery(run) {
+  const q = state.query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    run.id,
+    run.level_id,
+    run.level_name,
+    run.model,
+    run.harness,
+  ].join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
+function filteredRuns() {
+  return state.runs.filter(run => matchesFilter(run) && matchesQuery(run));
+}
+
+function renderFilters() {
+  const filters = [
+    ['all', 'All'],
+    ['screenshots', 'Screenshots'],
+    ['bundles', 'Bundles'],
+    ['snapshots', 'Snapshots'],
+    ['timeouts', 'Timeouts'],
+  ];
+  const el = document.getElementById('filter-row');
+  if (!el) return;
+  el.innerHTML = filters.map(([id, label]) => `
+    <button class="filter-btn ${state.filter === id ? 'active' : ''}" onclick="setFilter('${id}')">${esc(label)}</button>
+  `).join('');
+}
+
+function renderStats() {
+  const runs = filteredRuns();
+  const withScreens = runs.filter(run => Number(run.artifact_counts?.screenshots || 0) > 0).length;
+  const withBundles = runs.filter(run => Number(run.artifact_counts?.bundles || 0) > 0).length;
+  const withSnapshots = runs.filter(run => Number(run.artifact_counts?.snapshots || 0) > 0).length;
+  const el = document.getElementById('stats');
+  if (!el) return;
+  el.innerHTML = `${runs.length} runs<br>${withScreens} screenshot runs · ${withBundles} bundles · ${withSnapshots} snapshots`;
+}
+
+function renderRunList() {
+  const el = document.getElementById('run-list');
+  if (!el) return;
+  const runs = filteredRuns();
+  if (!runs.length) {
+    el.innerHTML = `<div class="empty">No runs match the current filters.</div>`;
+    return;
+  }
+
+  el.innerHTML = runs.map(run => {
+    const counts = run.artifact_counts || {};
+    return `
+      <div class="run-card ${state.selectedRunId === run.id ? 'active' : ''}" onclick="openRun('${run.id}')">
+        <div class="run-head">
+          <span class="run-id">run ${esc(run.id)}</span>
+          <span class="run-score">${Number(run.score_total || 0).toFixed(1)} / 100</span>
+        </div>
+        <div class="run-meta">
+          ${esc(run.level_name || run.level_id || '—')}<br>
+          ${esc(run.model || '—')} · ${esc(formatStamp(run.ts))}<br>
+          ${run.stars || 0}★ · ${Number(run.duration_s || 0).toFixed(1)}s · ${run.timed_out ? 'timeout' : 'ok'}
+        </div>
+        <div class="badge-row">
+          <span class="badge ${counts.screenshots ? 'good' : ''}">${counts.screenshots || 0} shots</span>
+          <span class="badge ${counts.bundles ? 'good' : ''}">${counts.bundles || 0} zips</span>
+          <span class="badge ${counts.snapshots ? 'snap' : ''}">${counts.snapshots || 0} snaps</span>
+          <span class="badge ${run.timed_out ? 'warn' : ''}">${run.tool_calls_n || 0} tools</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderArtifacts(artifacts) {
+  if (!Array.isArray(artifacts) || !artifacts.length) {
+    return `<div class="empty">No saved artifacts for this run.</div>`;
+  }
+  return `
+    <div class="artifact-grid">
+      ${artifacts.map(item => `
+        <div class="artifact-card">
+          <div class="artifact-top">
+            <span class="artifact-kind">${esc((item.kind || 'file').replace(/_/g, ' '))}</span>
+            <span class="artifact-size">${esc(formatBytes(item.size_bytes || 0))}</span>
+          </div>
+          <div class="artifact-name">${esc(item.name || item.label || 'artifact')}</div>
+          ${item.is_image ? `<a href="${esc(item.url)}" target="_blank" rel="noopener"><img class="artifact-img" src="${esc(item.url)}" alt="${esc(item.name || 'preview')}"></a>` : ''}
+          <div class="detail-links">
+            <a class="detail-link" href="${esc(item.url)}" target="_blank" rel="noopener">Open</a>
+            <a class="detail-link" href="${esc(item.url)}" download="${esc(item.name || '')}">Download</a>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function compareCandidatesFor(run) {
+  if (!run) return [];
+  return state.runs
+    .filter(item => item.id !== run.id && item.level_id === run.level_id)
+    .sort((a, b) => Number(b.score_total || 0) - Number(a.score_total || 0));
+}
+
+function metricValue(metric, side) {
+  const value = side === 'left' ? metric.left : metric.right;
+  if (metric.id === 'timed_out') return value ? 'YES' : 'NO';
+  if (metric.id === 'preview_ready_s') return value == null ? '—' : `${Number(value).toFixed(1)}s`;
+  if (metric.id === 'duration_s') return `${Number(value || 0).toFixed(1)}s`;
+  if (metric.id === 'score_total') return `${Number(value || 0).toFixed(1)}`;
+  return String(value ?? '—');
+}
+
+function renderComparePicker(run) {
+  const candidates = compareCandidatesFor(run);
+  if (!candidates.length) {
+    return `<div class="empty">No other stored runs for ${esc(run.level_id || 'this level')} yet.</div>`;
+  }
+  return `
+    <div class="compare-picker">
+      ${candidates.map(candidate => `
+        <button class="compare-btn ${state.compareRunId === candidate.id ? 'active' : ''}" onclick="setCompareRun('${candidate.id}')">
+          ${esc(candidate.model || candidate.id)}
+          <span class="compare-btn-meta">${Number(candidate.score_total || 0).toFixed(1)} / 100 · ${candidate.stars || 0}★ · ${formatStamp(candidate.ts)}</span>
+        </button>
+      `).join('')}
+      ${state.compareRunId ? `<button class="compare-btn" onclick="clearCompareRun()">Clear compare</button>` : ''}
+    </div>
+  `;
+}
+
+function renderCompareMetrics(comparePayload) {
+  const summary = comparePayload?.summary || {};
+  const metrics = Array.isArray(summary.metrics) ? summary.metrics : [];
+  const leftRun = comparePayload?.left?.run || {};
+  const rightRun = comparePayload?.right?.run || {};
+  if (!metrics.length) return `<div class="empty">No compare metrics available.</div>`;
+  return `
+    <div class="compare-summary">
+      ${esc(leftRun.model || leftRun.id || 'left')} vs ${esc(rightRun.model || rightRun.id || 'right')} ·
+      ${summary.same_level ? 'same level' : 'different levels'} ·
+      winner: ${esc(summary.winner || 'equal')}
+    </div>
+    <div class="compare-grid">
+      ${metrics.map(metric => `
+        <div class="compare-metric ${metric.better === 'left' ? 'best-left' : metric.better === 'right' ? 'best-right' : ''}">
+          <div class="compare-metric-label">${esc(metric.label)}</div>
+          <div class="compare-metric-values">
+            <div class="compare-metric-side ${metric.better === 'left' ? 'is-better' : ''}">
+              <strong>${esc(metricValue(metric, 'left'))}</strong>
+              ${esc(leftRun.model || leftRun.id || 'left')}
+            </div>
+            <div class="compare-metric-vs">VS</div>
+            <div class="compare-metric-side ${metric.better === 'right' ? 'is-better' : ''}">
+              <strong>${esc(metricValue(metric, 'right'))}</strong>
+              ${esc(rightRun.model || rightRun.id || 'right')}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderCompareStepCell(step, offset, fallback) {
+  if (!step) return `<div class="compare-cell"><div class="compare-step-body">${esc(fallback)}</div></div>`;
+  let detail = '';
+  if (step.type === 'tool_call') detail = JSON.stringify(step.args || {}, null, 2);
+  else if (step.type === 'tool_result') detail = `${step.ok ? 'exit 0' : `exit ${step.exit_code}`}\n${step.output_preview || ''}`;
+  else if (step.type === 'preview_ready') detail = `preview ready`;
+  else if (step.type === 'artifact') detail = `${step.kind || 'artifact'}\n${step.detail || step.path || ''}`;
+  else detail = step.text_preview || step.label || '';
+  return `
+    <div class="compare-cell">
+      <div class="compare-step-head">
+        <span class="compare-step-type">${esc(stepTypeLabel(step.type))}</span>
+        <span class="compare-step-time">${offset == null ? '—' : `+${Number(offset).toFixed(1)}s`}</span>
+      </div>
+      <div class="compare-step-body">${esc(detail)}</div>
+    </div>
+  `;
+}
+
+function renderCompareTimeline(comparePayload) {
+  const pairs = Array.isArray(comparePayload?.timeline_pairs) ? comparePayload.timeline_pairs : [];
+  if (!pairs.length) return `<div class="empty">No compare timeline available.</div>`;
+  return `
+    <div class="compare-lanes">
+      ${pairs.map(pair => `
+        <div class="compare-row ${pair.diverged ? 'diverged' : ''}">
+          ${renderCompareStepCell(pair.left, pair.left_offset_s, 'No left event')}
+          <div class="compare-mid">${pair.same_type ? 'SYNC' : 'DIFF'}</div>
+          ${renderCompareStepCell(pair.right, pair.right_offset_s, 'No right event')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderTimelineSteps(timeline) {
+  if (!Array.isArray(timeline) || !timeline.length) {
+    return `<div class="empty">No replay timeline available.</div>`;
+  }
+  return `
+    <div class="timeline">
+      ${timeline.map(step => {
+        let body = '';
+        if (step.type === 'session_start') {
+          const meta = step.meta || {};
+          body = `${meta.model || '—'} · ${meta.level_id || '—'} · ${meta.provider_label || '—'}`;
+        } else if (step.type === 'session_end') {
+          body = `score ${Number(step.score_total || 0).toFixed(1)} / 100${step.timed_out ? ' · timeout' : ''}`;
+        } else if (step.type === 'preview_ready') {
+          const meta = step.meta || {};
+          body = `localhost:${meta.host_preview_port || '?'}${meta.path || '/'}`;
+        } else if (step.type === 'tool_call') {
+          body = JSON.stringify(step.args || {}, null, 2);
+        } else if (step.type === 'tool_result') {
+          body = `${step.ok ? 'exit 0' : `exit ${step.exit_code}`}\n${step.output_preview || ''}`;
+        } else if (step.type === 'artifact') {
+          body = `${step.kind || 'artifact'}\n${step.detail || step.path || ''}`;
+        } else {
+          body = step.text_preview || '';
+        }
+        return `
+          <div class="step ${replayGroup(step.type)}">
+            <div class="step-head">
+              <span class="step-type">${esc(stepTypeLabel(step.type))}</span>
+              <span class="step-time">${esc(formatClock(step.ts))}</span>
+            </div>
+            <div class="step-label">${esc(step.label || step.type)}</div>
+            <div class="step-body">${esc(body)}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderDetail(run, payload) {
+  const el = document.getElementById('detail');
+  if (!el) return;
+  if (!run) {
+    el.innerHTML = `<div class="empty">Select a run to inspect saved data.</div>`;
+    return;
+  }
+
+  const artifacts = Array.isArray(payload?.artifacts) ? payload.artifacts : (run.artifacts || []);
+  const timeline = payload?.replay?.timeline || [];
+  const comparePayload = state.comparePayload;
+
+  el.innerHTML = `
+    <div class="detail-card">
+      <div class="detail-title">${esc(run.level_name || run.level_id || 'Run')} · run ${esc(run.id)}</div>
+      <div class="detail-meta">
+        ${esc(run.model || '—')} · ${run.stars || 0}★ · ${Number(run.score_total || 0).toFixed(1)} / 100<br>
+        ${esc(formatStamp(run.ts))} · ${Number(run.duration_s || 0).toFixed(1)}s · ${run.turns || 0} turns · ${run.tool_calls_n || 0} tools${run.timed_out ? ' · timeout' : ''}<br>
+        ${artifacts.length} saved artifacts${run.log_name ? ` · ${esc(run.log_name)}` : ''}
+      </div>
+      <div class="detail-links">
+        ${run.log_url ? `<a class="detail-link" href="${esc(run.log_url)}" target="_blank" rel="noopener">Open Log</a>` : ''}
+        ${run.log_url ? `<a class="detail-link" href="${esc(run.log_url)}" download="${esc(run.log_name || '')}">Download Log</a>` : ''}
+        <a class="detail-link" href="${esc(run.replay_url || `/api/replays/${run.id}`)}" target="_blank" rel="noopener">Replay JSON</a>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="section-title">Compare</div>
+      ${renderComparePicker(run)}
+    </div>
+
+    ${comparePayload ? `
+      <div class="detail-card">
+        <div class="section-title">Head To Head</div>
+        ${renderCompareMetrics(comparePayload)}
+      </div>
+      <div class="detail-card">
+        <div class="section-title">Trajectory Diff</div>
+        ${renderCompareTimeline(comparePayload)}
+      </div>
+    ` : ''}
+
+    <div class="detail-card">
+      <div class="section-title">Artifacts</div>
+      ${renderArtifacts(artifacts)}
+    </div>
+
+    <div class="detail-card">
+      <div class="section-title">Timeline</div>
+      ${renderTimelineSteps(timeline)}
+    </div>
+  `;
+}
+
+function setFilter(filter) {
+  state.filter = filter;
+  renderFilters();
+  renderStats();
+  renderRunList();
+  const runs = filteredRuns();
+  if (state.selectedRunId && !runs.some(run => run.id === state.selectedRunId)) {
+    state.selectedRunId = '';
+    state.detailPayload = null;
+  }
+  if (!state.selectedRunId && runs[0]) {
+    openRun(runs[0].id);
+  } else {
+    const run = state.runs.find(item => item.id === state.selectedRunId);
+    renderDetail(run, state.detailPayload);
+  }
+}
+
+function setQuery(value) {
+  state.query = value || '';
+  renderStats();
+  renderRunList();
+  const runs = filteredRuns();
+  if (state.selectedRunId && !runs.some(run => run.id === state.selectedRunId)) {
+    state.selectedRunId = '';
+    state.detailPayload = null;
+  }
+  if (!state.selectedRunId && runs[0]) {
+    openRun(runs[0].id);
+  } else {
+    const run = state.runs.find(item => item.id === state.selectedRunId);
+    renderDetail(run, state.detailPayload);
+  }
+}
+
+async function openRun(runId) {
+  state.selectedRunId = runId;
+  state.compareRunId = '';
+  state.comparePayload = null;
+  renderRunList();
+
+  const run = state.runs.find(item => item.id === runId);
+  renderDetail(run, null);
+
+  try {
+    const payload = await fetch(`/api/replays/${encodeURIComponent(runId)}`).then(r => r.json());
+    if (payload?.error) throw new Error(payload.error);
+    state.detailPayload = payload;
+    renderDetail(run, payload);
+  } catch (err) {
+    state.detailPayload = null;
+    renderDetail(run, null);
+  }
+}
+
+async function setCompareRun(runId) {
+  if (!state.selectedRunId) return;
+  state.compareRunId = runId;
+  state.comparePayload = null;
+  const run = state.runs.find(item => item.id === state.selectedRunId);
+  renderDetail(run, state.detailPayload);
+
+  try {
+    const query = new URLSearchParams({
+      left_run_id: state.selectedRunId,
+      right_run_id: runId,
+    });
+    const payload = await fetch(`/api/compare?${query.toString()}`).then(r => r.json());
+    if (payload?.error) throw new Error(payload.error);
+    state.comparePayload = payload;
+    renderDetail(run, state.detailPayload);
+  } catch (err) {
+    state.comparePayload = null;
+    renderDetail(run, state.detailPayload);
+  }
+}
+
+function clearCompareRun() {
+  state.compareRunId = '';
+  state.comparePayload = null;
+  const run = state.runs.find(item => item.id === state.selectedRunId);
+  renderDetail(run, state.detailPayload);
+}
+
+async function loadHistory() {
+  const list = document.getElementById('run-list');
+  if (list) list.innerHTML = `<div class="empty">Loading run history…</div>`;
+
+  try {
+    const data = await fetch('/api/history?limit=120').then(r => r.json());
+    state.runs = Array.isArray(data.runs) ? data.runs : [];
+    renderFilters();
+    renderStats();
+    renderRunList();
+
+    const runs = filteredRuns();
+    if (runs.length) {
+      const nextRunId = runs.some(run => run.id === state.selectedRunId)
+        ? state.selectedRunId
+        : runs[0].id;
+      await openRun(nextRunId);
+    } else {
+      state.selectedRunId = '';
+      state.detailPayload = null;
+      renderDetail(null, null);
+    }
+  } catch (err) {
+    if (list) list.innerHTML = `<div class="empty">Could not load history.</div>`;
+    renderDetail(null, null);
+  }
+}
+
+loadHistory();
+</script>
+</body>
+</html>

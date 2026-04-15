@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>benchb0t</title>
+<!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -761,6 +762,208 @@ footer {
 }
 .crit-chip.pass { border-color: var(--green); color: var(--green); }
 .crit-chip.fail { border-color: var(--red);   color: var(--red); }
+
+/* ── REPLAY ── */
+.replay-list,
+.replay-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.replay-empty {
+  font-size: 6px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+.replay-run-item {
+  border: 1px solid var(--b2);
+  background: rgba(0,0,0,.14);
+  padding: 7px 8px;
+  cursor: pointer;
+}
+.replay-run-item:hover {
+  border-color: var(--y1);
+}
+.replay-run-item.active {
+  border-color: var(--y2);
+  box-shadow: 0 0 10px rgba(255,179,0,.12);
+}
+.replay-run-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 6px;
+  color: var(--text);
+}
+.replay-run-id {
+  color: var(--y2);
+  letter-spacing: 1px;
+}
+.replay-run-score {
+  color: var(--y1);
+}
+.replay-run-meta {
+  font-size: 5px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+.replay-detail-card {
+  display: none;
+}
+.replay-detail-card.open {
+  display: block;
+}
+.replay-detail-head {
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--b1);
+  margin-bottom: 8px;
+}
+.replay-detail-title {
+  font-size: 7px;
+  color: var(--y1);
+  margin-bottom: 5px;
+  line-height: 1.5;
+}
+.replay-detail-meta {
+  font-size: 5px;
+  color: var(--dim);
+  line-height: 1.8;
+}
+.replay-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.replay-filter-btn {
+  font-family: var(--font);
+  font-size: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--b3);
+  color: var(--dim);
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.replay-filter-btn:hover {
+  border-color: var(--y1);
+  color: var(--y1);
+}
+.replay-filter-btn.active {
+  border-color: var(--y2);
+  color: var(--y2);
+}
+.replay-timeline {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.replay-timeline::-webkit-scrollbar { width: 3px; }
+.replay-timeline::-webkit-scrollbar-thumb { background: var(--b2); }
+.replay-artifacts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.replay-artifact {
+  border: 1px solid var(--b2);
+  background: rgba(0,0,0,.16);
+  padding: 7px 8px;
+}
+.replay-artifact-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 6px;
+  color: var(--text);
+}
+.replay-artifact-kind {
+  color: var(--y1);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.replay-artifact-size {
+  color: var(--dim);
+}
+.replay-artifact-name {
+  font-size: 6px;
+  color: var(--text);
+  line-height: 1.6;
+}
+.replay-artifact-links {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.replay-artifact-link {
+  font-size: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-decoration: none;
+  border: 1px solid var(--b3);
+  padding: 3px 6px;
+}
+.replay-artifact-link:hover {
+  color: var(--y1);
+  border-color: var(--y1);
+}
+.replay-artifact-img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border: 1px solid var(--b1);
+  background: #fff;
+  margin-top: 6px;
+}
+.replay-step {
+  border-left: 3px solid var(--b2);
+  background: rgba(0,0,0,.18);
+  padding: 6px 8px;
+}
+.replay-step.session { border-left-color: var(--violet); }
+.replay-step.messages { border-left-color: var(--y1); }
+.replay-step.tools { border-left-color: var(--cyan); }
+.replay-step.preview { border-left-color: var(--green); }
+.replay-step.artifacts { border-left-color: var(--y2); }
+.replay-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.replay-step-type {
+  font-size: 5px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.replay-step-time {
+  font-size: 5px;
+  color: var(--dim2);
+}
+.replay-step-label {
+  font-size: 6px;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.6;
+}
+.replay-step-body {
+  font-family: monospace;
+  font-size: 9px;
+  color: var(--text);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.replay-step-body.dim {
+  color: var(--dim);
+}
 </style>
 </head>
 <body>
@@ -788,6 +991,7 @@ footer {
   <div style="display:flex;gap:8px;margin-left:auto">
     <a href="/builder"   style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">BUILDER ↗</a>
     <a href="/analytics" style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">ANALYTICS ↗</a>
+    <a href="/history"   style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">HISTORY ↗</a>
   </div>
 </header>
 
@@ -873,6 +1077,18 @@ footer {
       <input type="checkbox" id="f-all">
       <label for="f-all">All levels</label>
     </div>
+    <div class="field-chk">
+      <input type="checkbox" id="f-shot" checked>
+      <label for="f-shot">Capture preview screenshot</label>
+    </div>
+    <div class="field-chk">
+      <input type="checkbox" id="f-save-result">
+      <label for="f-save-result">Save result bundle (.zip)</label>
+    </div>
+    <div class="field-chk">
+      <input type="checkbox" id="f-save-container">
+      <label for="f-save-container">Save container snapshot (Docker image)</label>
+    </div>
     <div class="hazard" style="margin-bottom:10px"></div>
     <button class="btn-run" id="btn-run" onclick="startRun()">▶ &nbsp;START</button>
     <button class="btn-stop" id="btn-stop" onclick="stopRun()" disabled>■ &nbsp;STOP</button>
@@ -885,6 +1101,26 @@ footer {
     <div class="kv"><span class="k">Turns</span> <span class="v" id="sl-turns">0</span></div>
     <div class="kv"><span class="k">Tools</span> <span class="v" id="sl-tools">0</span></div>
     <div class="kv"><span class="k">Time</span>  <span class="v" id="sl-time">—</span></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span class="ct" style="margin-bottom:0">Replay</span>
+      <button class="pf-refresh" onclick="loadRecentRuns('', false)" title="Refresh recent runs">↺</button>
+    </div>
+    <div id="replay-list" class="replay-list">
+      <div class="replay-empty">No stored runs yet.</div>
+    </div>
+  </div>
+
+  <div class="card replay-detail-card" id="replay-detail-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span class="ct" style="margin-bottom:0">Run Replay</span>
+      <button class="pf-refresh" onclick="closeReplay()" title="Close replay">×</button>
+    </div>
+    <div id="replay-detail-body">
+      <div class="replay-empty">Select a run to inspect its timeline.</div>
+    </div>
   </div>
 
   <!-- Runner error log — shown only when runner exits with errors -->
@@ -961,6 +1197,12 @@ let totalStars = 0;
 let timerInt   = null;
 let curLevelId = null;
 let batchState = null;
+let recentRuns = [];
+let replayState = {
+  selectedRunId: null,
+  filter: 'all',
+  payload: null,
+};
 
 // Active session tracking — used by header badge + BenchBot-AI live context
 let _activeRunId  = null;   // 8-char hex run ID (set on session_start, cleared on all sessions done)
@@ -1336,6 +1578,7 @@ async function init() {
   renderPresetBar(1, []);
   await loadCreds();
   await loadLevels();
+  await loadRecentRuns('', true);
   await runPreflight();
   // Auto-detect in background — fills in detected chips without blocking UI
   detectProviders(1);
@@ -1442,6 +1685,194 @@ async function loadLevels() {
   ).join('');
 }
 
+function replayGroup(type) {
+  if (type === 'session_start' || type === 'session_end') return 'session';
+  if (type === 'assistant_message' || type === 'user_message') return 'messages';
+  if (type === 'tool_call' || type === 'tool_result') return 'tools';
+  if (type === 'preview_ready') return 'preview';
+  if (type === 'artifact') return 'artifacts';
+  return 'other';
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (!n) return '0 B';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRunStamp(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function renderRecentRuns() {
+  const el = document.getElementById('replay-list');
+  if (!el) return;
+  if (!recentRuns.length) {
+    el.innerHTML = `<div class="replay-empty">No stored runs yet.</div>`;
+    return;
+  }
+
+  el.innerHTML = recentRuns.map(run => `
+    <div class="replay-run-item ${replayState.selectedRunId === run.id ? 'active' : ''}" onclick="openReplay('${run.id}')">
+      <div class="replay-run-head">
+        <span class="replay-run-id">run ${esc(run.id)}</span>
+        <span class="replay-run-score">${Number(run.score_total || 0).toFixed(1)} / 100</span>
+      </div>
+      <div class="replay-run-meta">
+        ${esc(run.level_id || '—')} · ${esc(run.model || '—')}<br>
+        ${esc(formatRunStamp(run.ts))} · ${run.stars || 0}★ · ${run.timed_out ? 'timeout' : 'ok'}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderReplayFilters() {
+  const filters = [
+    ['all', 'All'],
+    ['session', 'Session'],
+    ['messages', 'Messages'],
+    ['tools', 'Tools'],
+    ['preview', 'Preview'],
+    ['artifacts', 'Artifacts'],
+  ];
+  return `
+    <div class="replay-filters">
+      ${filters.map(([id, label]) => `
+        <button class="replay-filter-btn ${replayState.filter === id ? 'active' : ''}" onclick="setReplayFilter('${id}')">${esc(label)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+
+function renderReplayArtifacts(artifacts) {
+  if (!Array.isArray(artifacts) || !artifacts.length) return '';
+  return `
+    <div class="replay-artifacts">
+      ${artifacts.map(item => `
+        <div class="replay-artifact">
+          <div class="replay-artifact-head">
+            <span class="replay-artifact-kind">${esc((item.kind || 'file').replace(/_/g, ' '))}</span>
+            <span class="replay-artifact-size">${esc(formatBytes(item.size_bytes || 0))}</span>
+          </div>
+          <div class="replay-artifact-name">${esc(item.name || item.label || 'artifact')}</div>
+          ${item.is_image ? `<a href="${esc(item.url || '#')}" target="_blank" rel="noopener"><img class="replay-artifact-img" src="${esc(item.url || '#')}" alt="${esc(item.name || 'preview screenshot')}"></a>` : ''}
+          <div class="replay-artifact-links">
+            <a class="replay-artifact-link" href="${esc(item.url || '#')}" target="_blank" rel="noopener">open</a>
+            <a class="replay-artifact-link" href="${esc(item.url || '#')}" download="${esc(item.name || '')}">download</a>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderReplayDetail(payload) {
+  const wrap = document.getElementById('replay-detail-card');
+  const body = document.getElementById('replay-detail-body');
+  if (!wrap || !body) return;
+
+  if (!payload || !payload.run) {
+    wrap.classList.remove('open');
+    body.innerHTML = `<div class="replay-empty">Select a run to inspect its timeline.</div>`;
+    return;
+  }
+
+  const run = payload.run;
+  const replay = payload.replay || {};
+  const summary = replay.summary || {};
+  const session = summary.session || {};
+  const timeline = Array.isArray(replay.timeline) ? replay.timeline : [];
+  const artifacts = Array.isArray(payload.artifacts) ? payload.artifacts : [];
+  const filtered = replayState.filter === 'all'
+    ? timeline
+    : timeline.filter(step => replayGroup(step.type) === replayState.filter);
+
+  wrap.classList.add('open');
+  body.innerHTML = `
+    <div class="replay-detail-head">
+      <div class="replay-detail-title">${esc(run.level_name || run.level_id || 'Run')} · run ${esc(run.id)}</div>
+      <div class="replay-detail-meta">
+        ${esc(run.model || '—')} · ${Number(run.score_total || 0).toFixed(1)} / 100 · ${run.stars || 0}★<br>
+        ${Number(run.duration_s || 0).toFixed(1)}s · ${run.turns || 0} turns · ${run.tool_calls_n || 0} tools${run.timed_out ? ' · timeout' : ''}<br>
+        ${payload.log_found ? 'agentlog loaded' : 'agentlog missing'} · ${summary.event_count || 0} events · ${artifacts.length} artifacts
+      </div>
+    </div>
+    ${renderReplayArtifacts(artifacts)}
+    ${renderReplayFilters()}
+    <div class="replay-timeline">
+      ${filtered.length ? filtered.map(renderReplayStep).join('') : '<div class="replay-empty">No events match this filter.</div>'}
+    </div>
+  `;
+}
+
+async function openReplay(runId) {
+  replayState.selectedRunId = runId;
+  renderRecentRuns();
+
+  const wrap = document.getElementById('replay-detail-card');
+  const body = document.getElementById('replay-detail-body');
+  if (wrap && body) {
+    wrap.classList.add('open');
+    body.innerHTML = `<div class="replay-empty">Loading replay…</div>`;
+  }
+
+  try {
+    const payload = await fetch('/api/replays/' + encodeURIComponent(runId)).then(r => r.json());
+    if (!payload || payload.error || !payload.run) {
+      throw new Error(payload?.error || 'run not found');
+    }
+    replayState.payload = payload;
+    renderRecentRuns();
+    renderReplayDetail(payload);
+  } catch (e) {
+    replayState.payload = null;
+    if (body) body.innerHTML = `<div class="replay-empty">Could not load replay.</div>`;
+  }
+}
+
+function closeReplay() {
+  replayState.selectedRunId = null;
+  replayState.payload = null;
+  replayState.filter = 'all';
+  renderRecentRuns();
+  renderReplayDetail(null);
+}
+
+function setReplayFilter(filter) {
+  replayState.filter = filter;
+  renderReplayDetail(replayState.payload);
+}
+
+async function loadRecentRuns(preferredRunId = '', autoOpen = false) {
+  try {
+    const data = await fetch('/api/replays/recent?limit=12').then(r => r.json());
+    recentRuns = Array.isArray(data.runs) ? data.runs : [];
+    renderRecentRuns();
+
+    if (!recentRuns.length) {
+      closeReplay();
+      return;
+    }
+
+    const nextRunId =
+      preferredRunId ||
+      replayState.selectedRunId ||
+      (autoOpen ? recentRuns[0]?.id : '');
+
+    if (nextRunId) {
+      await openReplay(nextRunId);
+    }
+  } catch (e) {
+    const el = document.getElementById('replay-list');
+    if (el) el.innerHTML = `<div class="replay-empty">Could not load recent runs.</div>`;
+  }
+}
+
 // ── Run control ───────────────────────────────────────────────────────────────
 async function startRun() {
   const providers = [getProviderConfig(1)];
@@ -1460,6 +1891,9 @@ async function startRun() {
   }
   const level  = document.getElementById('f-level').value;
   const allLvl = document.getElementById('f-all').checked;
+  const capturePreviewScreenshot = document.getElementById('f-shot').checked;
+  const saveResultBundle = document.getElementById('f-save-result').checked;
+  const saveContainerSnapshot = document.getElementById('f-save-container').checked;
 
   // Build terminals
   const toRun = allLvl ? allLevels : allLevels.filter(l => l.path === level);
@@ -1477,6 +1911,9 @@ async function startRun() {
       api_key: providers[0].api_key,
       level,
       all_levels: allLvl,
+      capture_preview_screenshot: capturePreviewScreenshot,
+      save_result_bundle: saveResultBundle,
+      save_container_snapshot: saveContainerSnapshot,
       providers,
     }),
   });
@@ -1501,7 +1938,10 @@ function setStatus(s) {
   if (s === 'idle') {
     clearInterval(timerInt);
     // When a run just finished, fetch the runner output and surface any errors
-    if (wasRunning) checkRunnerLog();
+    if (wasRunning) {
+      checkRunnerLog();
+      loadRecentRuns('', true);
+    }
   }
   if (s === 'running') {
     // hide previous error card
@@ -1546,6 +1986,7 @@ setInterval(async () => {
   const d = await fetch('/api/status').then(r => r.json()).catch(() => ({}));
   if (d.status && d.status !== runStatus) setStatus(d.status);
 }, 2500);
+setInterval(() => loadRecentRuns('', false), 20000);
 
 // ── Terminal panels ───────────────────────────────────────────────────────────
 function buildTerminals(levels) {
@@ -2237,6 +2678,10 @@ function onEvent(ev) {
       clearPreviewLifecycleTimers(lid);
     }
 
+    if (ev.run_id) {
+      setTimeout(() => loadRecentRuns(ev.run_id, true), 1200);
+    }
+
     curLevelId = null;
   }
 }
@@ -2395,7 +2840,7 @@ function connect() {
   ws.onerror = () => ws.close();
 }
 
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// esc() function consolidated to shared-utils.js for DRY
 
 // ── BenchBot-AI Chat ──────────────────────────────────────────────────────────
 let chatBusy    = false;
@@ -2406,6 +2851,81 @@ function initChat() {
     const model = d.model || d.providers?.[0]?.model || 'not configured';
     document.getElementById('chat-model-lbl').textContent = model;
   }).catch(() => {});
+}
+
+function buildChatUiState() {
+  const providers = [getProviderConfig(1)];
+  const parallel = !!document.getElementById('f-parallel')?.checked;
+  if (parallel) {
+    const provider2 = getProviderConfig(2);
+    if (provider2.base_url || provider2.model || provider2.api_key) providers.push(provider2);
+  }
+  return {
+    base_url: providers[0]?.base_url || '',
+    model: providers[0]?.model || '',
+    api_key: providers[0]?.api_key || '',
+    providers,
+    parallel_compare: parallel,
+    level: document.getElementById('f-level')?.value || '',
+    all_levels: !!document.getElementById('f-all')?.checked,
+    capture_preview_screenshot: !!document.getElementById('f-shot')?.checked,
+    save_result_bundle: !!document.getElementById('f-save-result')?.checked,
+    save_container_snapshot: !!document.getElementById('f-save-container')?.checked,
+  };
+}
+
+function applyChatUiPatch(patch) {
+  if (!patch || typeof patch !== 'object') return;
+
+  if (Array.isArray(patch.providers)) {
+    const hasSecond = !!patch.parallel_compare || patch.providers.length > 1;
+    document.getElementById('f-parallel').checked = hasSecond;
+    toggleSecondaryProvider(hasSecond);
+    setProviderFields(1, patch.providers[0] || { base_url: '', model: '', api_key: '' });
+    setProviderFields(2, patch.providers[1] || { base_url: '', model: '', api_key: '' });
+    const modelLbl = patch.providers[0]?.model || 'not configured';
+    document.getElementById('chat-model-lbl').textContent = modelLbl;
+  } else if ('parallel_compare' in patch) {
+    document.getElementById('f-parallel').checked = !!patch.parallel_compare;
+    toggleSecondaryProvider(!!patch.parallel_compare);
+  }
+
+  const levelEl = document.getElementById('f-level');
+  if (levelEl && typeof patch.level === 'string') {
+    const options = Array.from(levelEl.options || []);
+    const exists = options.some(opt => opt.value === patch.level);
+    if (exists) levelEl.value = patch.level;
+  }
+  if ('all_levels' in patch) {
+    document.getElementById('f-all').checked = !!patch.all_levels;
+  }
+  if ('capture_preview_screenshot' in patch) {
+    document.getElementById('f-shot').checked = !!patch.capture_preview_screenshot;
+  }
+  if ('save_result_bundle' in patch) {
+    document.getElementById('f-save-result').checked = !!patch.save_result_bundle;
+  }
+  if ('save_container_snapshot' in patch) {
+    document.getElementById('f-save-container').checked = !!patch.save_container_snapshot;
+  }
+}
+
+function applyChatRunLifecycle(event) {
+  const patch = event?.ui_patch || buildChatUiState();
+  if (event?._type === 'run_started') {
+    const providers = Array.isArray(patch.providers) && patch.providers.length
+      ? patch.providers
+      : [getProviderConfig(1)];
+    const level = patch.level || document.getElementById('f-level')?.value || '';
+    const allLvl = !!patch.all_levels;
+    const toRun = allLvl ? allLevels : allLevels.filter(l => l.path === level);
+    buildTerminals(buildPanels(toRun, providers));
+    document.getElementById('run-label').textContent = 'running…';
+    document.getElementById('run-label').style.color = 'var(--y2)';
+    setStatus('running');
+  } else if (event?._type === 'run_stopped') {
+    setStatus('idle');
+  }
 }
 
 async function sendChat() {
@@ -2436,6 +2956,7 @@ async function sendChat() {
       body:    JSON.stringify({
         messages:       chatHistory,
         active_run_id:  (_liveCtxOn && _activeRunId) ? _activeRunId : '',
+        ...buildChatUiState(),
       }),
     });
     const reader  = res.body.getReader();
@@ -2458,6 +2979,20 @@ async function sendChat() {
             bodyEl.textContent = 'Error: ' + ev.error;
             aEl.classList.add('error');
             break;
+          }
+          if (ev.ui_patch) {
+            applyChatUiPatch(ev.ui_patch);
+          }
+          if (ev._type === 'tool' || ev._type === 'run_started' || ev._type === 'run_stopped') {
+            if (ev.message) {
+              if (fullText) fullText += '\n';
+              fullText += `[${ev.tool || ev._type}] ${ev.message}`;
+              bodyEl.textContent = fullText;
+              bodyEl.appendChild(cursor);
+              scrollChatToBottom();
+            }
+            applyChatRunLifecycle(ev);
+            continue;
           }
           if (ev.delta) {
             fullText += ev.delta;

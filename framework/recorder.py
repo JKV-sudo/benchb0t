@@ -4,16 +4,14 @@ framework/recorder.py
 Session recorder — captures every tool call, message, and event as an
 .agentlog file (newline-delimited JSON).
 
-.agentlog format
-────────────────
-One JSON object per line, each with a mandatory ``type`` field:
-
-  {"type": "session_start",  "ts": ..., "level_id": ..., "harness": ...}
-  {"type": "message_delta",  "ts": ..., "role": "assistant", "delta": ...}
-  {"type": "message",        "ts": ..., "role": "user"|"assistant", "content": ...}
-  {"type": "tool_call",      "ts": ..., "tool": ..., "args": ..., "call_id": ...}
-  {"type": "tool_result",    "ts": ..., "call_id": ..., "exit_code": ..., "output": ...}
-  {"type": "session_end",    "ts": ..., "score": ..., "timed_out": bool}
+.agentlog format (one JSON object per line, each with a mandatory ``type`` field)
+  session_start  — run_id, level_id, harness, and metadata
+  message_delta  — streaming text deltas (role: assistant)
+  message        — complete chat messages (role: user|assistant|system)
+  tool_call      — tool invocation request (tool name + JSON arguments)
+  tool_result    — tool result (exit code + output)
+  artifact       — saved artifacts (screenshot, snapshot, bundle)
+  session_end    — final score, timed_out flag
 
 All timestamps are Unix epoch floats.
 """
@@ -23,11 +21,12 @@ from __future__ import annotations
 import gzip
 import json
 import logging
-import os
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+from framework.utils import truncate
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +79,6 @@ class Recorder:
 
         logger.info("Recording session → %s", self._path)
 
-    # ── Public API ────────────────────────────────────────────────────────────
-
     @property
     def run_id(self) -> str:
         return self._run_id
@@ -116,14 +113,14 @@ class Recorder:
         """Number of assistant turns recorded so far."""
         return self._turn_count
 
-    def record_message(self, role: str, content: str | list[Any]) -> None:
+    def record_message(self, role: str, content: str) -> None:
         """Record a chat message (user or assistant turn)."""
         if role == "assistant":
             self._turn_count += 1
         self._write(
             type="message",
             role=role,
-            content=content if isinstance(content, str) else json.dumps(content),
+            content=content,
         )
 
     def record_message_delta(self, role: str, delta: str) -> None:
@@ -148,7 +145,7 @@ class Recorder:
         """
         cid = call_id or uuid.uuid4().hex[:12]
         self._write(type="tool_call", tool=tool, args=args, call_id=cid)
-        logger.debug("tool_call [%s] %s(%s)", cid[:6], tool, _truncate(args))
+        logger.debug("tool_call [%s] %s(%s)", cid[:6], tool, truncate(args))
         return cid
 
     def record_tool_result(
@@ -176,7 +173,7 @@ class Recorder:
         self._tool_calls.append(record)
         logger.debug(
             "tool_result [%s] exit=%d output=%s",
-            call_id[:6], exit_code, _truncate(output),
+            call_id[:6], exit_code, truncate(output),
         )
 
     def record_preview_ready(self, host_port: int, path: str = "/") -> None:
@@ -187,6 +184,23 @@ class Recorder:
         """
         self._write(type="preview_ready", host_preview_port=host_port, preview_path=path)
         logger.info("Preview ready on host port %d (path=%s)", host_port, path)
+
+    def record_artifact(
+        self,
+        kind: str,
+        path: str,
+        label: str = "",
+        **metadata: Any,
+    ) -> None:
+        """Record a saved artifact for replay and later inspection."""
+        self._write(
+            type="artifact",
+            kind=kind,
+            path=path,
+            label=label or kind.replace("_", " "),
+            **metadata,
+        )
+        logger.info("Artifact saved: %s (%s)", path, kind)
 
     def end(
         self,
@@ -215,8 +229,6 @@ class Recorder:
         if self.compress:
             self._gzip_log()
 
-    # ── Private helpers ───────────────────────────────────────────────────────
-
     def _write(self, **kwargs: Any) -> None:
         payload = {**self._event_context, **kwargs}
         payload.setdefault("ts", time.time())
@@ -230,8 +242,6 @@ class Recorder:
         self._path.unlink()
         logger.debug("Compressed log → %s", gz_path)
 
-
-# ── Replay helper ─────────────────────────────────────────────────────────────
 
 def load_agentlog(path: str | Path) -> list[dict[str, Any]]:
     """
@@ -247,11 +257,3 @@ def load_agentlog(path: str | Path) -> list[dict[str, Any]]:
             if line:
                 events.append(json.loads(line))
     return events
-
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
-
-def _truncate(value: Any, limit: int = 80) -> str:
-    """Return a short string representation for logging."""
-    text = str(value)
-    return text if len(text) <= limit else text[:limit] + "…"

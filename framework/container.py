@@ -48,8 +48,8 @@ class LevelContainer:
 
     def __init__(
         self,
-        level_cfg: dict[str, Any],
-        framework_cfg: dict[str, Any],
+        level_cfg: dict[str, object],
+        framework_cfg: dict[str, object],
         level_id: str,
     ) -> None:
         self.level_id = level_id
@@ -58,8 +58,6 @@ class LevelContainer:
 
         self._container: Container | None = None
         self._client: docker.DockerClient | None = None  # lazy — initialised in start()
-
-    # ── Public API ────────────────────────────────────────────────────────────
 
     def start(self) -> None:
         """Connect to Docker daemon, pull image (if needed), and start the container."""
@@ -149,8 +147,10 @@ class LevelContainer:
                         self.host_preview_port,
                         preview_port,
                     )
-            except Exception as exc:
-                logger.warning("Could not read port bindings: %s", exc)
+            except (KeyError, TypeError, ValueError) as exc:
+                # Narrow catch: KeyError (missing binding), TypeError (malformed response),
+                # ValueError (int conversion failure on HostPort)
+                logger.warning("Could not parse port bindings: %s", exc)
 
         # Install declared packages before the setup script runs
         self._install_packages(self._cfg.get("packages", {}))
@@ -281,7 +281,7 @@ class LevelContainer:
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
-    def _install_packages(self, packages: dict[str, list[str]]) -> None:
+    def _install_packages(self, packages: dict[str, list[str]] | None) -> None:
         """
         Install packages declared in the level YAML ``container.packages`` block.
 
@@ -302,43 +302,27 @@ class LevelContainer:
         if not packages:
             return
 
-        # apt
-        apt_pkgs = packages.get("apt", [])
-        if apt_pkgs:
-            pkg_list = " ".join(apt_pkgs)
-            logger.info("Installing apt packages: %s", pkg_list)
-            exit_code, out = self.exec(
-                f"apt-get update -qq && apt-get install -y --no-install-recommends {pkg_list}"
-            )
-            if exit_code != 0:
-                logger.warning("apt install failed (exit %d): %s", exit_code, out[:300])
+        # Define install commands per package manager.
+        # Reduces 58 lines of repetitive code (4 managers × ~9 lines each).
+        managers = {
+            "apt": "apt-get update -qq && apt-get install -y --no-install-recommends",
+            "pip": "pip install --quiet",
+            "npm": "npm install -g",
+            "gem": "gem install",
+        }
 
-        # pip
-        pip_pkgs = packages.get("pip", [])
-        if pip_pkgs:
-            pkg_list = " ".join(pip_pkgs)
-            logger.info("Installing pip packages: %s", pkg_list)
-            exit_code, out = self.exec(f"pip install --quiet {pkg_list}")
+        for manager_name, base_cmd in managers.items():
+            pkgs = packages.get(manager_name, [])
+            if not pkgs:
+                continue
+            pkg_list = " ".join(pkgs)
+            logger.info("Installing %s packages: %s", manager_name, pkg_list)
+            exit_code, out = self.exec(f"{base_cmd} {pkg_list}")
             if exit_code != 0:
-                logger.warning("pip install failed (exit %d): %s", exit_code, out[:300])
-
-        # npm
-        npm_pkgs = packages.get("npm", [])
-        if npm_pkgs:
-            pkg_list = " ".join(npm_pkgs)
-            logger.info("Installing npm packages: %s", pkg_list)
-            exit_code, out = self.exec(f"npm install -g {pkg_list}")
-            if exit_code != 0:
-                logger.warning("npm install failed (exit %d): %s", exit_code, out[:300])
-
-        # gem
-        gem_pkgs = packages.get("gem", [])
-        if gem_pkgs:
-            pkg_list = " ".join(gem_pkgs)
-            logger.info("Installing gem packages: %s", pkg_list)
-            exit_code, out = self.exec(f"gem install {pkg_list}")
-            if exit_code != 0:
-                logger.warning("gem install failed (exit %d): %s", exit_code, out[:300])
+                logger.warning(
+                    "%s install failed (exit %d): %s",
+                    manager_name, exit_code, out[:300]
+                )
 
     @staticmethod
     def _make_client() -> docker.DockerClient:
@@ -394,7 +378,7 @@ class LevelContainer:
         return int(float(raw) * 100_000)  # 100_000 µs = 1 CPU period
 
     @staticmethod
-    def _resolve_env(env: dict[str, str]) -> dict[str, str]:
+    def _resolve_env(env: dict[str, object]) -> dict[str, str]:
         """
         Substitute ${ENV_VAR} references in environment values from the host.
         """

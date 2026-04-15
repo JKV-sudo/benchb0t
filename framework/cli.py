@@ -20,6 +20,7 @@ via `python -m framework.runner` for backwards compatibility.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -30,6 +31,8 @@ from framework.config import (
     load_harness_config,
     load_level_config,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ── Sub-command handlers ──────────────────────────────────────────────────────
@@ -54,6 +57,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
         argv += ["--mode", args.mode]
     if args.no_prompt:
         argv.append("--no-prompt")
+    if args.capture_preview_screenshot:
+        argv.append("--capture-preview-screenshot")
+    if args.save_result_bundle:
+        argv.append("--save-result-bundle")
+    if args.save_container_snapshot:
+        argv.append("--save-container-snapshot")
 
     _sys.argv = argv
     runner_main()
@@ -99,7 +108,9 @@ def _cmd_list(args: argparse.Namespace) -> int:
             if args.include_deprecated:
                 row.append("deprecated" if level.is_deprecated else "active")
             rows.append(tuple(row))
-        except Exception:
+        except (LevelValidationError, FileNotFoundError) as exc:
+            # Invalid or missing level file
+            logger.debug("Skipping invalid level %s: %s", f.name, exc)
             row = [f.stem, "?", "?", "?", "—", "—"]
             if args.include_deprecated:
                 row.append("invalid")
@@ -272,6 +283,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Agent system prompt mode (default: unguided)",
     )
     p_run.add_argument("--no-prompt", action="store_true", help="Skip interactive boot screen")
+    p_run.add_argument(
+        "--capture-preview-screenshot",
+        action="store_true",
+        help="Capture a preview screenshot for levels that expose a web server",
+    )
+    p_run.add_argument(
+        "--save-result-bundle",
+        action="store_true",
+        help="Save a ZIP bundle with result.json, agentlog, and saved artifacts",
+    )
+    p_run.add_argument(
+        "--save-container-snapshot",
+        action="store_true",
+        help="Commit the final container state to a Docker image and save metadata",
+    )
 
     # ── dash ─────────────────────────────────────────────────────────────────
     p_dash = sub.add_parser("dash", help="Start the live dashboard (http://localhost:7860)")

@@ -1,0 +1,177 @@
+/**
+ * framework/templates/shared-theme.css
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * Shared theme variables and common styles for all benchb0t templates.
+ * Consolidated from dashboard.html, builder.html, history.html, analytics.html.
+ *
+ * Include this in <head> before template-specific styles:
+ *   <link rel="stylesheet" href="/static/shared-theme.css">
+ */
+
+:root {
+  /* ── Core color palette ── */
+  --bg:      #0a0800;      /* main background */
+  --panel:   #100d00;      /* panel/card background */
+  --panel2:  #151000;      /* alternate panel background */
+
+  /* ── Borders and fills ── */
+  --b1:      #241e00;      /* dark border / inactive element */
+  --b2:      #3a3000;      /* medium border */
+  --b3:      #4a3f00;      /* light border / accent */
+
+  /* ── Yellow/Amber (primary accent) ── */
+  --y1:      #ffd700;      /* main yellow / glow / focus */
+  --y2:      #ffb300;      /* amber / secondary highlight */
+  --y3:      #ff8c00;      /* deep amber / warning */
+  --ydk:     #7a6000;      /* dark yellow for bars/disabled */
+
+  /* ── Text ── */
+  --text:    #ffe87a;      /* warm text color */
+  --dim:     #5a4a10;      /* dimmed text / labels */
+  --dim2:    #3a3000;      /* very dim text */
+
+  /* ── Status colors ── */
+  --green:   #39ff14;      /* success / pass (neon) */
+  --red:     #ff3a3a;      /* error / fail */
+  --cyan:    #00e5ff;      /* info / secondary (used in some templates) */
+  --cyan-dk: #007f8f;      /* dark cyan */
+  --violet:  #b36cff;      /* completion / special state */
+  --violet-dk: #5e2f91;    /* dark violet */
+
+  /* ── Special backgrounds ── */
+  --term-bg: #050400;      /* terminal/code background */
+  --term-y:  #ffc200;      /* terminal text color */
+  --term-dk: #1a1400;      /* terminal dim text */
+
+  /* ── Game-style stat colors (analytics.html) ── */
+  --s-hp:    #ff5959;      /* red — completion score */
+  --s-atk:   #ffd700;      /* gold — efficiency score */
+  --s-def:   #39ff14;      /* green — self-correction */
+  --s-sp:    #ffb300;      /* amber — path quality */
+  --s-spd:   #ff8c00;      /* orange — speed / turns */
+
+  /* ── Fonts ── */
+  --font:    'Press Start 2P', monospace;
+}
+
+/* ── Global resets ── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10px;
+  overflow: hidden;
+}
+
+/* ── CRT scanlines effect (retro aesthetic) ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.07) 3px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+}
+
+/* ── Common form field styling ── */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+textarea,
+select {
+  background: var(--bg);
+  border: 2px solid var(--b2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 7px;
+  padding: 7px 8px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--y1);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2);
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%235a4a10'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  padding-right: 20px;
+  cursor: pointer;
+}
+
+select option {
+  background: var(--panel);
+}
+
+/* ── Common button styling ── */
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Links ── */
+a {
+  color: var(--y2);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--y1);
+}
+
+/* ── Animations ── */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── Scrollbar styling (webkit browsers) ── */
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--b2);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

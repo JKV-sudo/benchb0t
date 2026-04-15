@@ -164,6 +164,7 @@ tools:
   - bash
   - write_file
   - read_file
+  - run_background
 
 evaluation:
   type:              script

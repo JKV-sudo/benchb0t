@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>benchb0t · level builder</title>
+<!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -118,16 +119,44 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
 
 /* ACTION BUTTONS */
 .actions{padding:14px;display:flex;gap:8px;border-top:2px solid var(--b1);background:var(--panel);flex-shrink:0}
+.actions{flex-wrap:wrap;align-items:center}
 .btn-save{
   flex:1;padding:11px;font-family:var(--font);font-size:8px;letter-spacing:3px;
   background:var(--y1);color:#000;border:none;cursor:pointer;
   box-shadow:0 4px 0 var(--ydk);transition:transform .08s,box-shadow .08s}
 .btn-save:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ydk)}
+.btn-validate{
+  padding:11px 14px;font-family:var(--font);font-size:7px;letter-spacing:2px;
+  background:transparent;color:var(--green);border:2px solid var(--green);cursor:pointer}
+.btn-validate:hover{background:rgba(57,255,20,.08)}
+.btn-validate:disabled{color:var(--dim);border-color:var(--b2);background:transparent;cursor:not-allowed}
 .btn-copy{
   padding:11px 14px;font-family:var(--font);font-size:7px;letter-spacing:2px;
   background:transparent;color:var(--y2);border:2px solid var(--y2);cursor:pointer}
 .btn-copy:hover{background:rgba(255,179,0,.08)}
 .save-msg{font-size:6px;color:var(--green);letter-spacing:1px;align-self:center;display:none}
+.lint-panel{
+  display:none;padding:10px 14px 14px;border-top:1px solid var(--b1);
+  background:var(--panel2);flex-direction:column;gap:8px
+}
+.lint-status{
+  font-size:6px;letter-spacing:2px;padding:8px 9px;border:2px solid var(--b2);
+  color:var(--dim)
+}
+.lint-status.ok{border-color:var(--green);color:var(--green)}
+.lint-status.warn{border-color:var(--y2);color:var(--y2)}
+.lint-status.error{border-color:var(--red);color:var(--red)}
+.lint-block{display:flex;flex-direction:column;gap:5px}
+.lint-label{font-size:5px;letter-spacing:2px}
+.lint-label.error{color:var(--red)}
+.lint-label.warn{color:var(--y2)}
+.lint-list{display:flex;flex-direction:column;gap:5px;list-style:none}
+.lint-list li{
+  font-size:6px;line-height:1.8;padding:7px 8px;border-left:2px solid var(--b2);
+  background:rgba(0,0,0,.12)
+}
+.lint-list li.error{border-color:var(--red);color:#ffb0b0}
+.lint-list li.warn{border-color:var(--y2);color:var(--text)}
 
 /* YAML PREVIEW */
 .preview-hdr{background:var(--panel);border-bottom:2px solid var(--b1);
@@ -237,6 +266,7 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
   <div style="margin-left:auto;display:flex;gap:10px">
     <a class="nav-a" href="/">← LIVE</a>
     <a class="nav-a" href="/analytics">ANALYTICS</a>
+    <a class="nav-a" href="/history">HISTORY</a>
   </div>
 </header>
 
@@ -475,6 +505,15 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
         <label class="tool-chk" id="tc-http_request">
           <input type="checkbox" onchange="syncTool(this,'http_request')"> <span>http_request</span>
         </label>
+        <label class="tool-chk" id="tc-list_dir">
+          <input type="checkbox" onchange="syncTool(this,'list_dir')"> <span>list_dir</span>
+        </label>
+        <label class="tool-chk" id="tc-run_background">
+          <input type="checkbox" onchange="syncTool(this,'run_background')"> <span>run_background</span>
+        </label>
+        <label class="tool-chk" id="tc-patch_file">
+          <input type="checkbox" onchange="syncTool(this,'patch_file')"> <span>patch_file</span>
+        </label>
       </div>
     </div>
   </div>
@@ -542,8 +581,20 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
   <!-- ACTIONS -->
   <div class="actions">
     <button class="btn-copy" onclick="copyYaml()">📋 COPY</button>
+    <button class="btn-validate" id="btn-validate" onclick="validateLevel()">🔎 VALIDATE</button>
     <button class="btn-save" onclick="saveLevel()">💾 SAVE LEVEL</button>
     <span class="save-msg" id="save-msg">✔ SAVED</span>
+  </div>
+  <div class="lint-panel" id="lint-panel">
+    <div class="lint-status" id="lint-status">Run validate to check this level before saving.</div>
+    <div class="lint-block" id="lint-errors-wrap" style="display:none">
+      <div class="lint-label error">ERRORS</div>
+      <ul class="lint-list" id="lint-errors"></ul>
+    </div>
+    <div class="lint-block" id="lint-warnings-wrap" style="display:none">
+      <div class="lint-label warn">WARNINGS</div>
+      <ul class="lint-list" id="lint-warnings"></ul>
+    </div>
   </div>
 
 </div><!-- /left -->
@@ -558,6 +609,7 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
+const ALL_TOOLS = ['bash','read_file','write_file','http_request','list_dir','run_background','patch_file'];
 let difficulty = 1;
 let tools      = ['bash','read_file','write_file'];
 let critCount  = 0;
@@ -607,15 +659,7 @@ async function loadLevel() {
     setDiff(d.difficulty || 1);
 
     // tools
-    tools = [];
-    ['bash','read_file','write_file','http_request'].forEach(t => {
-      const cb  = document.querySelector(`#tc-${t} input`);
-      const lbl = document.getElementById('tc-' + t);
-      const on  = (d.tools || []).includes(t);
-      if (cb)  cb.checked = on;
-      if (lbl) lbl.classList.toggle('checked', on);
-      if (on)  tools.push(t);
-    });
+    setToolSelection(d.tools || []);
 
     // criteria — clear and re-add
     document.getElementById('crit-list').innerHTML = '';
@@ -668,6 +712,28 @@ function syncTool(cb, name) {
   if (cb.checked) { if (!tools.includes(name)) tools.push(name); lbl.classList.add('checked'); }
   else            { tools = tools.filter(t => t !== name); lbl.classList.remove('checked'); }
   sync();
+}
+
+function setToolSelection(nextTools) {
+  const selected = Array.isArray(nextTools) ? nextTools : [];
+  tools = [];
+  ALL_TOOLS.forEach(t => {
+    const cb  = document.querySelector(`#tc-${t} input`);
+    const lbl = document.getElementById('tc-' + t);
+    const on  = selected.includes(t);
+    if (cb) cb.checked = on;
+    if (lbl) lbl.classList.toggle('checked', on);
+    if (on) tools.push(t);
+  });
+}
+
+function ensureToolEnabled(name) {
+  if (!ALL_TOOLS.includes(name)) return;
+  if (!tools.includes(name)) tools.push(name);
+  const cb = document.querySelector(`#tc-${name} input`);
+  const lbl = document.getElementById('tc-' + name);
+  if (cb) cb.checked = true;
+  if (lbl) lbl.classList.add('checked');
 }
 
 // ── Name → ID slug ────────────────────────────────────────────────────────────
@@ -773,7 +839,7 @@ function buildYaml() {
     s.split('\n').map((l, i) => (i === 0 ? '' : ' '.repeat(indent)) + l).join('\n');
   const setupBlock = setup
     ? '|\n    ' + setup.split('\n').join('\n    ')
-    : 'null';
+    : '""';
   const instrBlock = instr
     ? '|\n    ' + instr.split('\n').join('\n    ')
     : '""';
@@ -865,8 +931,8 @@ function buildYaml() {
 function sync() {
   const yaml  = buildYaml();
   const lines = yaml.split('\n');
+  // esc() now from shared-utils.js for consistency
   const html  = lines.map(line => {
-    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     if (/^\s*#/.test(line))   return `<span class="yc">${esc(line)}</span>`;
     const m = line.match(/^(\s*)([\w_]+)(:)(.*)/);
     if (m) {
@@ -886,9 +952,68 @@ function sync() {
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
+function currentLevelFilename() {
+  const id = val('f-id') || 'l-my-level';
+  return id + '.yaml';
+}
+
+function renderValidationResult(result) {
+  const panel = document.getElementById('lint-panel');
+  const status = document.getElementById('lint-status');
+  const errorsWrap = document.getElementById('lint-errors-wrap');
+  const warningsWrap = document.getElementById('lint-warnings-wrap');
+  const errorsEl = document.getElementById('lint-errors');
+  const warningsEl = document.getElementById('lint-warnings');
+  const errors = Array.isArray(result?.errors) ? result.errors : [];
+  const warnings = Array.isArray(result?.warnings) ? result.warnings : [];
+
+  panel.style.display = 'flex';
+  errorsEl.innerHTML = errors.map(item => `<li class="error">${esc(item)}</li>`).join('');
+  warningsEl.innerHTML = warnings.map(item => `<li class="warn">${esc(item)}</li>`).join('');
+  errorsWrap.style.display = errors.length ? 'flex' : 'none';
+  warningsWrap.style.display = warnings.length ? 'flex' : 'none';
+
+  status.className = 'lint-status';
+  if (result?.valid) {
+    if (warnings.length) {
+      status.classList.add('warn');
+      status.textContent = `VALID LEVEL · ${warnings.length} warning(s)`;
+    } else {
+      status.classList.add('ok');
+      status.textContent = 'VALID LEVEL · ready to save';
+    }
+  } else {
+    status.classList.add('error');
+    status.textContent = `INVALID LEVEL · ${errors.length || 1} issue(s)`;
+  }
+}
+
+async function validateLevel() {
+  const btn = document.getElementById('btn-validate');
+  const filename = currentLevelFilename();
+  const content = buildYaml();
+  btn.disabled = true;
+  btn.textContent = '… VALIDATING';
+  try {
+    const res = await fetch('/api/levels/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content }),
+    });
+    const data = await res.json();
+    renderValidationResult(data);
+    return !!data.valid;
+  } catch (e) {
+    renderValidationResult({ valid: false, errors: [e.message], warnings: [] });
+    return false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔎 VALIDATE';
+  }
+}
+
 async function saveLevel() {
-  const id       = val('f-id') || 'l-my-level';
-  const filename = id + '.yaml';
+  const filename = currentLevelFilename();
   const content  = buildYaml();
   const res = await fetch('/api/levels/save', {
     method: 'POST',
@@ -897,6 +1022,12 @@ async function saveLevel() {
   });
   const data = await res.json();
   const msg = document.getElementById('save-msg');
+  const validation = data.validation || {
+    valid: res.ok,
+    errors: data.errors || (data.error ? [data.error] : []),
+    warnings: data.warnings || [],
+  };
+  renderValidationResult(validation);
   if (res.ok) {
     msg.textContent = '✔ SAVED → levels/' + filename;
     msg.style.color = 'var(--green)';
@@ -916,8 +1047,7 @@ function copyYaml() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
-function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// val() and esc() are now in shared-utils.js for DRY consolidation
 
 function setField(id, v) {
   const el = document.getElementById(id);
@@ -1018,6 +1148,7 @@ function onPortPreset(v) {
     setField('f-port', v);
     document.getElementById('f-ppath-wrap').style.display = 'flex';
   }
+  if (v !== 'none') ensureToolEnabled('run_background');
   sync();
 }
 
@@ -1060,7 +1191,7 @@ function applyTemplate(type) {
       port:    '3000',
       ppath:   '/',
       diff:    2,
-      tools:   ['bash', 'write_file'],
+      tools:   ['bash', 'write_file', 'run_background'],
       criteria: [
         { id:'server_responds', desc:'server responds on port 3000', check:'curl -sf http://localhost:3000/', weight: 1.5 },
         { id:'server_file_exists', desc:'server.js exists in /workspace', check:'test -f /workspace/server.js', weight: 0.5 },
@@ -1169,18 +1300,11 @@ function applyTemplate(type) {
   setField('f-eff',     tpl.eff);
   setField('f-port',    tpl.port);
   setField('f-ppath',   tpl.ppath);
+  onPortPreset(tpl.port ? String(tpl.port) : 'none');
   setDiff(tpl.diff);
 
   // tools
-  tools = [];
-  ['bash','read_file','write_file','http_request'].forEach(t => {
-    const cb  = document.querySelector(`#tc-${t} input`);
-    const lbl = document.getElementById('tc-' + t);
-    const on  = tpl.tools.includes(t);
-    if (cb)  cb.checked = on;
-    if (lbl) lbl.classList.toggle('checked', on);
-    if (on)  tools.push(t);
-  });
+  setToolSelection(tpl.tools || []);
 
   // criteria
   document.getElementById('crit-list').innerHTML = '';
@@ -1215,6 +1339,27 @@ function serializeLevelContext() {
   return buildYaml();
 }
 
+function renderBuilderPatchControl(aEl, patch, label='PATCH READY') {
+  if (!patch || typeof patch !== 'object') return;
+  const keys = Object.keys(patch).join(', ');
+  const wrap = document.createElement('div');
+  wrap.className = 'cf-patch-wrap';
+  wrap.innerHTML = `<div class="cf-patch-info">◆ ${esc(label)}: ${esc(keys)}</div>`;
+  const btn = document.createElement('button');
+  btn.className = 'cf-patch-btn';
+  btn.textContent = '▶ APPLY PATCH TO FORM';
+  btn.onclick = () => {
+    applyLevelPatch(patch);
+    btn.textContent = '✔ APPLIED';
+    btn.classList.add('applied');
+    btn.disabled = true;
+  };
+  wrap.appendChild(btn);
+  aEl.appendChild(wrap);
+  const msgs = document.getElementById('cf-msgs');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
 async function sendBuilderAI() {
   if (cfBusy) return;
   const input = document.getElementById('cf-input');
@@ -1241,6 +1386,7 @@ async function sendBuilderAI() {
         messages:     cfHistory,
         page:         'builder',
         page_context: serializeLevelContext(),
+        allow_control: true,
       }),
     });
     const reader  = res.body.getReader();
@@ -1259,6 +1405,20 @@ async function sendBuilderAI() {
         try {
           const ev = JSON.parse(payload);
           if (ev.error) { bodyEl.textContent = 'Error: ' + ev.error; aEl.classList.add('error'); break; }
+          if (ev._type === 'tool' || ev._type === 'level_patch' || ev._type === 'level_saved') {
+            if (ev.message) {
+              if (full) full += '\n';
+              full += `[${ev.tool || ev._type}] ${ev.message}`;
+              bodyEl.textContent = full;
+              bodyEl.appendChild(cursor);
+            }
+            if (ev.level_patch) {
+              renderBuilderPatchControl(aEl, ev.level_patch, ev._type === 'level_saved' ? 'LEVEL READY' : 'PATCH READY');
+            }
+            const msgs = document.getElementById('cf-msgs');
+            msgs.scrollTop = msgs.scrollHeight;
+            continue;
+          }
           if (ev.delta) {
             full += ev.delta;
             bodyEl.textContent = full;
@@ -1284,23 +1444,7 @@ async function sendBuilderAI() {
     if (patchMatch) {
       try {
         const patchJson = JSON.parse(patchMatch[1].trim());
-        const keys = Object.keys(patchJson).join(', ');
-        const wrap = document.createElement('div');
-        wrap.className = 'cf-patch-wrap';
-        wrap.innerHTML = `<div class="cf-patch-info">◆ PATCH READY: ${esc(keys)}</div>`;
-        const btn = document.createElement('button');
-        btn.className = 'cf-patch-btn';
-        btn.textContent = '▶ APPLY PATCH TO FORM';
-        btn.onclick = () => {
-          applyLevelPatch(patchJson);
-          btn.textContent = '✔ APPLIED';
-          btn.classList.add('applied');
-          btn.disabled = true;
-        };
-        wrap.appendChild(btn);
-        aEl.appendChild(wrap);
-        const msgs = document.getElementById('cf-msgs');
-        msgs.scrollTop = msgs.scrollHeight;
+        renderBuilderPatchControl(aEl, patchJson, 'PATCH READY');
       } catch(e) { /* malformed patch JSON — silently skip */ }
     }
   }
@@ -1355,15 +1499,7 @@ function applyLevelPatch(patch) {
 
   // tools — full replacement
   if (Array.isArray(patch.tools)) {
-    tools = [];
-    ['bash','read_file','write_file','http_request'].forEach(t => {
-      const cb  = document.querySelector(`#tc-${t} input`);
-      const lbl = document.getElementById('tc-' + t);
-      const on  = patch.tools.includes(t);
-      if (cb)  cb.checked = on;
-      if (lbl) lbl.classList.toggle('checked', on);
-      if (on)  tools.push(t);
-    });
+    setToolSelection(patch.tools);
   }
 
   // criteria — full replacement when provided

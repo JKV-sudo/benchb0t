@@ -1,0 +1,354 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Level 10 — Bella Italia Ordering System
+# Difficulty: ★★★★★  (full stack restaurant app with cart + persistence)
+#
+# Agent must complete a scaffolded Express + React/Vite application:
+#   • Backend health + order endpoint
+#   • Menu JSON with exactly 15 items
+#   • Frontend restaurant page with cart and checkout
+#   • Order persistence to /workspace/orders.json
+# ─────────────────────────────────────────────────────────────────────────────
+
+level:
+  id:         l10-bella-italia
+  name:       "Bella Italia Ordering System"
+  difficulty: 5
+  category:   fullstack
+  tags:       [react, vite, express, restaurant, cart, persistence, menu]
+
+container:
+  image:       node:20-slim
+  working_dir: /workspace
+  env:
+    TASK_ENV: sandbox
+  volumes: []
+  packages:
+    apt: [curl]
+    pip: []
+    npm: []
+  setup_script: |
+    set -e
+
+    mkdir -p /workspace/server /workspace/bella-italia/src
+    printf '[]\n' > /workspace/orders.json
+
+    cat > /workspace/server/package.json << 'BACKENDPKG'
+    {
+      "name": "bella-italia-backend",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": {
+        "start": "node server.js"
+      },
+      "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.18.2"
+      }
+    }
+    BACKENDPKG
+
+    cat > /workspace/server/server.js << 'SERVERJS'
+    import express from 'express'
+    const app = express()
+
+    app.get('/api/health', (_req, res) => {
+      res.status(500).json({ ok: false, message: 'TODO: implement backend' })
+    })
+
+    app.listen(3001, '0.0.0.0', () => {
+      console.log('Placeholder backend on http://0.0.0.0:3001')
+    })
+    SERVERJS
+
+    cd /workspace/server && npm install
+
+    cat > /workspace/bella-italia/package.json << 'FRONTENDPKG'
+    {
+      "name": "bella-italia-frontend",
+      "version": "1.0.0",
+      "type": "module",
+      "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+      },
+      "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+      },
+      "devDependencies": {
+        "@vitejs/plugin-react": "^4.2.0",
+        "vite": "^5.0.0"
+      }
+    }
+    FRONTENDPKG
+
+    cat > /workspace/bella-italia/index.html << 'INDEXHTML'
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bella Italia</title>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+      </body>
+    </html>
+    INDEXHTML
+
+    cat > /workspace/bella-italia/vite.config.js << 'VITECFG'
+    import { defineConfig } from 'vite'
+    import react from '@vitejs/plugin-react'
+
+    export default defineConfig({
+      plugins: [react()],
+      server: {
+        host: '0.0.0.0',
+        port: 3000
+      }
+    })
+    VITECFG
+
+    cat > /workspace/bella-italia/src/main.jsx << 'MAINJSX'
+    import React from 'react'
+    import ReactDOM from 'react-dom/client'
+    import App from './App.jsx'
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    )
+    MAINJSX
+
+    cat > /workspace/bella-italia/src/menu.json << 'MENUJSON'
+    []
+    MENUJSON
+
+    cat > /workspace/bella-italia/src/App.jsx << 'APPJSX'
+    export default function App() {
+      return (
+        <main style={{ minHeight: '100vh', padding: '2rem', background: '#111', color: '#f5e6c8' }}>
+          <h1>Bella Italia scaffold ready</h1>
+          <p>Replace this placeholder with the full restaurant experience.</p>
+        </main>
+      )
+    }
+    APPJSX
+
+    cd /workspace/bella-italia && npm install
+
+preview:
+  port: 3000
+  path: "/"
+
+task:
+  instruction: |
+    A scaffolded full-stack restaurant app is ready:
+      • Backend:  /workspace/server/
+      • Frontend: /workspace/bella-italia/
+      • Orders file: /workspace/orders.json
+
+    Dependencies are already installed. DO NOT run npm install again.
+
+    Build a polished Italian restaurant ordering experience called "Bella Italia".
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 1 — BACKEND  (/workspace/server/server.js)
+    ══════════════════════════════════════════════════════════════════════════
+    Implement an Express server on port 3001 with:
+
+      GET  /api/health
+        → returns JSON { ok: true, app: "bella-italia" }
+
+      POST /api/order
+        → accepts JSON:
+             {
+               customerName: string,
+               items: [{ id, name, qty, price }],
+               total: number
+             }
+        → validates customerName and at least one item
+        → appends the order (plus createdAt timestamp) to /workspace/orders.json
+        → returns JSON { ok: true, orderId }
+
+    Requirements:
+      • Use express.json()
+      • Use cors()
+      • Keep persistence format as a JSON array in /workspace/orders.json
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 2 — MENU DATA  (/workspace/bella-italia/src/menu.json)
+    ══════════════════════════════════════════════════════════════════════════
+    Replace menu.json with EXACTLY 15 menu items.
+
+    Each item must include:
+      id, name, description, price, category
+
+    Required categories:
+      • Antipasti
+      • Primi
+      • Secondi
+      • Dolci
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 3 — FRONTEND  (/workspace/bella-italia/src/App.jsx)
+    ══════════════════════════════════════════════════════════════════════════
+    Build a restaurant website with:
+      • Hero/header section
+      • Category-based menu sections rendered from menu.json
+      • Cart sidebar or cart summary
+      • Add-to-cart button on each item
+      • Ability to increase/decrease quantity and remove items
+      • Customer name input and checkout button
+      • Checkout POSTs to /api/order
+      • On success show this exact confirmation text:
+          Grazie! Ihre Bestellung wurde aufgenommen.
+
+    Design:
+      • rich Italian restaurant look
+      • warm colors, good typography, polished spacing
+      • responsive desktop/mobile layout
+
+    ══════════════════════════════════════════════════════════════════════════
+    PART 4 — VITE CONFIG  (/workspace/bella-italia/vite.config.js)
+    ══════════════════════════════════════════════════════════════════════════
+    Update vite.config.js so that:
+      • host = 0.0.0.0
+      • port = 3000
+      • /api requests proxy to http://localhost:3001
+
+    ══════════════════════════════════════════════════════════════════════════
+    STARTUP SEQUENCE
+    ══════════════════════════════════════════════════════════════════════════
+    1. Start backend:
+         run_background command="cd /workspace/server && node server.js" wait_seconds=3
+
+    2. Start frontend:
+         run_background command="cd /workspace/bella-italia && npm run dev" wait_seconds=6
+
+    3. Verify:
+         curl -sf http://localhost:3001/api/health
+         curl -sf http://localhost:3000/
+
+    Rules:
+      • Use only files inside /workspace/server and /workspace/bella-italia
+      • Do not re-install dependencies
+      • Keep menu.json as valid JSON
+  context: null
+  max_turns:  35
+  timeout_s:  300
+
+modes:
+  guided:
+    system_prompt: |
+      You are a precise full-stack engineer agent in a Docker sandbox.
+      A backend and frontend scaffold already exist and dependencies are installed.
+      Do NOT run npm install again.
+
+      Follow this order:
+
+      1. Inspect the scaffold:
+         list_dir /workspace/server
+         list_dir /workspace/bella-italia/src
+         read_file /workspace/server/server.js
+         read_file /workspace/bella-italia/src/App.jsx
+         read_file /workspace/bella-italia/src/menu.json
+
+      2. Implement backend:
+         write_file /workspace/server/server.js
+
+      3. Create menu data:
+         write_file /workspace/bella-italia/src/menu.json
+
+      4. Build frontend:
+         write_file /workspace/bella-italia/src/App.jsx
+
+      5. Fix Vite proxy:
+         write_file or patch_file /workspace/bella-italia/vite.config.js
+
+      6. Start backend and frontend with run_background.
+
+      7. Verify both:
+         bash: curl -sf http://localhost:3001/api/health
+         bash: curl -sf http://localhost:3000/
+
+      When done, explain what was built and confirm the cart/order flow.
+  unguided:
+    system_prompt: |
+      You are a capable full-stack engineer agent. Complete the assigned task.
+      When done, respond with a plain text summary.
+
+tools:
+  - bash
+  - write_file
+  - read_file
+  - list_dir
+  - run_background
+  - patch_file
+
+evaluation:
+  type:              script
+  efficiency_target: 14
+  criteria:
+    - id:          backend_health
+      description: "Backend health endpoint returns ok=true"
+      type:        script
+      check:       >
+        curl -sf http://localhost:3001/api/health |
+        node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const j=JSON.parse(d); if(!j.ok) process.exit(1);})"
+      weight:      2.5
+
+    - id:          frontend_responds
+      description: "Frontend preview responds on port 3000"
+      type:        script
+      check:       "curl -sf http://localhost:3000/ > /dev/null"
+      weight:      2.0
+
+    - id:          menu_json_has_15_items
+      description: "menu.json contains exactly 15 items across all required categories"
+      type:        script
+      check:       >
+        node -e "const fs=require('fs');const items=JSON.parse(fs.readFileSync('/workspace/bella-italia/src/menu.json','utf8'));const cats=new Set(items.map(i=>i.category));if(items.length!==15) process.exit(1);['Antipasti','Primi','Secondi','Dolci'].forEach(c=>{if(!cats.has(c)) process.exit(1)});"
+      weight:      3.0
+
+    - id:          cart_logic_present
+      description: "Frontend source contains cart quantity and remove logic"
+      type:        script
+      check:       >
+        grep -q 'setCart' /workspace/bella-italia/src/App.jsx &&
+        grep -qi 'quantity' /workspace/bella-italia/src/App.jsx &&
+        grep -qi 'remove' /workspace/bella-italia/src/App.jsx
+      weight:      1.5
+
+    - id:          checkout_posts_to_api
+      description: "Frontend posts orders to /api/order"
+      type:        script
+      check:       "grep -q '/api/order' /workspace/bella-italia/src/App.jsx"
+      weight:      1.5
+
+    - id:          success_message_present
+      description: "Frontend contains the required success message"
+      type:        script
+      check:       "grep -q 'Grazie! Ihre Bestellung wurde aufgenommen.' /workspace/bella-italia/src/App.jsx"
+      weight:      1.0
+
+    - id:          order_persistence
+      description: "POST /api/order persists an order to /workspace/orders.json"
+      type:        script
+      check:       >
+        curl -sf -X POST -H 'Content-Type: application/json'
+        -d '{"customerName":"Bench","items":[{"id":"margherita","name":"Pizza Margherita","qty":1,"price":12}],"total":12}'
+        http://localhost:3001/api/order > /dev/null &&
+        node -e "const fs=require('fs');const orders=JSON.parse(fs.readFileSync('/workspace/orders.json','utf8'));if(!Array.isArray(orders)||!orders.length||orders[orders.length-1].customerName!=='Bench') process.exit(1)"
+      weight:      3.0
+
+    - id:          vite_proxy_configured
+      description: "Vite proxy points /api to backend port 3001"
+      type:        script
+      check:       >
+        grep -q 'proxy' /workspace/bella-italia/vite.config.js &&
+        grep -q '/api' /workspace/bella-italia/vite.config.js &&
+        grep -q '3001' /workspace/bella-italia/vite.config.js
+      weight:      1.5

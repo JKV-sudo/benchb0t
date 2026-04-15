@@ -25,6 +25,7 @@ KNOWN_TOOLS = {
 }
 KNOWN_EVAL_TYPES = {"script", "exact_match", "llm_judge"}
 LEVEL_FILENAME_RE = re.compile(r"^l\d{1,3}-[a-z0-9-]+\.yaml$")
+_PROSE_SCRIPT_PREFIXES = ("check if", "verify that", "verify ", "ensure that", "ensure ")
 
 
 class FrameworkConfigError(ValueError):
@@ -542,6 +543,7 @@ def load_level_config(path: str | Path) -> LevelFileConfig:
         model = LevelFileConfig.model_validate(raw)
     except ValidationError as exc:
         raise LevelValidationError(f"Invalid level config in {file_path}:\n{exc}") from exc
+    _validate_level_semantics(file_path, model)
     return model
 
 
@@ -553,3 +555,31 @@ def load_harness_config(path: str | Path) -> HarnessFileConfig:
     except ValidationError as exc:
         raise HarnessValidationError(f"Invalid harness config in {file_path}:\n{exc}") from exc
     return model
+
+
+def _validate_level_semantics(path: Path, model: LevelFileConfig) -> None:
+    """Catch semantically broken levels that still satisfy the raw schema."""
+    errors: list[str] = []
+
+    image = model.container.image.strip()
+    if image.startswith(("http://", "https://")):
+        errors.append("container.image must be a Docker image reference, not a URL")
+
+    if model.preview and "run_background" not in model.tools:
+        errors.append("preview levels must include run_background in tools")
+
+    for criterion in model.evaluation.criteria:
+        if criterion.type != "script":
+            continue
+        check = criterion.check.strip()
+        if not check:
+            errors.append(f"criterion {criterion.id!r} must define a non-empty script check")
+            continue
+        if check.lower().startswith(_PROSE_SCRIPT_PREFIXES):
+            errors.append(
+                f"criterion {criterion.id!r} uses prose instead of a shell command in evaluation.check"
+            )
+
+    if errors:
+        formatted = "\n".join(f"- {error}" for error in errors)
+        raise LevelValidationError(f"Invalid level config in {path}:\n{formatted}")

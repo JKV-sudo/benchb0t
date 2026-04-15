@@ -15,7 +15,18 @@ __pycache__/
 *.agentlog
 *.agentlog.gz
 
-# Python
+# test / coverage artefacts
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Python build
 .venv/
 *.egg-info/
 dist/
+build/
+
+# stray binary files
+Download.jpeg

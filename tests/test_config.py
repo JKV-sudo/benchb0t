@@ -77,6 +77,78 @@ def test_load_level_config_rejects_negative_preview_linger(tmp_path: Path) -> No
         load_level_config(level_path)
 
 
+def test_load_level_config_rejects_url_image_and_prose_checks(tmp_path: Path) -> None:
+    level_path = tmp_path / "l10-broken-webapp.yaml"
+    level_path.write_text(
+        textwrap.dedent(
+            """
+            level:
+              id: l10-broken-webapp
+              name: Broken Webapp
+              difficulty: 3
+              category: webapp
+            container:
+              image: https://images.example.com/preview.png
+              working_dir: /workspace
+            task:
+              instruction: Build a webapp
+            tools:
+              - bash
+              - run_background
+            preview:
+              port: 3000
+            evaluation:
+              type: script
+              efficiency_target: 0
+              criteria:
+                - id: server_responds
+                  description: Validate the server
+                  type: script
+                  check: Check if the site responds on port 3000
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(LevelValidationError, match="container.image must be a Docker image reference"):
+        load_level_config(level_path)
+
+
+def test_load_level_config_rejects_preview_without_run_background(tmp_path: Path) -> None:
+    level_path = tmp_path / "l10-preview-missing-tool.yaml"
+    level_path.write_text(
+        textwrap.dedent(
+            """
+            level:
+              id: l10-preview-missing-tool
+              name: Preview Missing Tool
+              difficulty: 2
+              category: webapp
+            container:
+              image: node:20-slim
+              working_dir: /workspace
+            task:
+              instruction: Build and serve an app
+            tools:
+              - bash
+              - write_file
+            preview:
+              port: 3000
+            evaluation:
+              type: script
+              efficiency_target: 0
+              criteria: []
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(LevelValidationError, match="preview levels must include run_background"):
+        load_level_config(level_path)
+
+
 def test_repo_sample_configs_validate(repo_root: Path) -> None:
     framework_cfg = load_framework_config(repo_root / "config.yaml")
     level_cfg = load_level_config(repo_root / "levels" / "l99-test.yaml")

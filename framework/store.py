@@ -108,8 +108,6 @@ class Store:
         self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()   # serialises all DB access within this process
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
-
     def init(self) -> "Store":
         # timeout=15 → callers block up to 15 s waiting for a cross-process lock
         # rather than raising immediately.
@@ -158,8 +156,6 @@ class Store:
 
         logger.info("Store ready at %s", self._path)
         return self
-
-    # ── Write ─────────────────────────────────────────────────────────────────
 
     def record_run(self, result: dict[str, Any]) -> None:
         """Persist a completed level result. Idempotent (INSERT OR REPLACE)."""
@@ -230,10 +226,10 @@ class Store:
                 "Stored run %s — level=%s model=%s score=%.1f",
                 row["id"], row["level_id"], row["model"], total,
             )
-        except Exception as exc:
-            logger.warning("store.record_run failed: %s", exc)
-
-    # ── Reads — each acquires the lock, fetches all rows, releases ────────────
+        except (sqlite3.OperationalError, sqlite3.IntegrityError) as exc:
+            # Database integrity or operational failure — must be visible
+            logger.error("Failed to store run %s: %s", row.get("id", "?"), exc)
+            raise
 
     def _query(self, sql: str, params: tuple = ()) -> list[dict]:
         if not self._conn:

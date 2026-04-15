@@ -23,28 +23,33 @@ Penalties (subtracted before normalisation)
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+from framework.types import (
+    CriterionResult,
+    ScoreDimensions,
+    ScorePenalties,
+    ScoreSummary,
+)
 
 logger = logging.getLogger(__name__)
 
 
-# ── Data structures ────────────────────────────────────────────────────────────
-
-@dataclass
-class CriterionResult:
-    criterion_id: str
-    passed: bool
-    weight: float
-    notes: str = ""
-
-
 @dataclass
 class ScoreBreakdown:
-    completion: float      = 0.0   # 0–1
-    efficiency: float      = 0.0   # 0–1
-    self_correction: float = 0.0   # 0–1
-    path_quality: float    = 0.0   # 0–1
+    """
+    Mutable working state during scoring. Converted to immutable ScoreSummary.
+
+    Maintains internal weights and intermediate calculations that are not
+    exposed in the final result; the final summary is a ScoreSummary.
+    """
+
+    completion: float = 0.0  # 0–1
+    efficiency: float = 0.0  # 0–1
+    self_correction: float = 0.0  # 0–1
+    path_quality: float = 0.0  # 0–1
 
     completion_weight: float = 0.40
     efficiency_weight: float = 0.25
@@ -52,10 +57,10 @@ class ScoreBreakdown:
     path_quality_weight: float = 0.15
 
     penalty_extra_calls: float = 0.0
-    penalty_backtracks: float  = 0.0
-    penalty_timeout: float     = 0.0
+    penalty_backtracks: float = 0.0
+    penalty_timeout: float = 0.0
     # Accumulated penalty for forced-retry attempts (−penalty_per_retry × retries used)
-    penalty_retry: float       = 0.0
+    penalty_retry: float = 0.0
 
     criteria_results: list[CriterionResult] = field(default_factory=list)
 
@@ -75,33 +80,51 @@ class ScoreBreakdown:
         return max(0.0, min(100.0, raw))
 
     def summary(self) -> dict[str, Any]:
+        """Convert to dict for compatibility."""
         return {
             "total": round(self.total, 2),
             "dimensions": {
-                "completion":      round(self.completion * 100, 2),
-                "efficiency":      round(self.efficiency * 100, 2),
+                "completion": round(self.completion * 100, 2),
+                "efficiency": round(self.efficiency * 100, 2),
                 "self_correction": round(self.self_correction * 100, 2),
-                "path_quality":    round(self.path_quality * 100, 2),
+                "path_quality": round(self.path_quality * 100, 2),
             },
             "penalties": {
                 "extra_calls": round(self.penalty_extra_calls, 2),
-                "backtracks":  round(self.penalty_backtracks, 2),
-                "timeout":     round(self.penalty_timeout, 2),
-                "retry":       round(self.penalty_retry, 2),
+                "backtracks": round(self.penalty_backtracks, 2),
+                "timeout": round(self.penalty_timeout, 2),
+                "retry": round(self.penalty_retry, 2),
             },
             "criteria": [
                 {
-                    "id":     r.criterion_id,
+                    "id": r.criterion_id,
                     "passed": r.passed,
                     "weight": r.weight,
-                    "notes":  r.notes,
+                    "notes": r.notes,
                 }
                 for r in self.criteria_results
             ],
         }
 
+    def to_score_summary(self) -> ScoreSummary:
+        """Convert to immutable ScoreSummary for use in RunResult."""
+        return ScoreSummary(
+            total=self.total,
+            dimensions=ScoreDimensions(
+                completion=self.completion,
+                efficiency=self.efficiency,
+                self_correction=self.self_correction,
+                path_quality=self.path_quality,
+            ),
+            penalties=ScorePenalties(
+                extra_calls=self.penalty_extra_calls,
+                backtracks=self.penalty_backtracks,
+                timeout=self.penalty_timeout,
+                retry=self.penalty_retry,
+            ),
+            criteria=self.criteria_results,
+        )
 
-# ── Main scorer ────────────────────────────────────────────────────────────────
 
 class Scorer:
     """
@@ -136,8 +159,8 @@ class Scorer:
         tool_calls: list[dict[str, Any]],
         *,
         timed_out: bool = False,
-        container_exec: Any | None = None,  # callable(cmd) → (exit_code, output)
-        judge_fn: Any | None = None,        # callable(prompt) → str
+        container_exec: Callable[[str], tuple[int, str]] | None = None,  # callable(cmd) → (exit_code, output)
+        judge_fn: Callable[[str], str] | None = None,        # callable(prompt) → str
     ) -> ScoreBreakdown:
         """
         Compute the full score for a session.
@@ -160,7 +183,6 @@ class Scorer:
             path_quality_weight=self._weights["path_quality"],
         )
 
-        # ── 1. Evaluate criteria ──────────────────────────────────────────────
         criteria = self._eval.get("criteria", [])
         eval_type = self._eval.get("type", "script")
 
@@ -174,7 +196,6 @@ class Scorer:
             )
             bd.criteria_results.append(result)
 
-        # ── 2. Completion score ───────────────────────────────────────────────
         if criteria:
             weighted_pass = sum(r.weight for r in bd.criteria_results if r.passed)
             total_weight  = sum(r.weight for r in bd.criteria_results)
@@ -182,7 +203,6 @@ class Scorer:
         else:
             bd.completion = 0.0
 
-        # ── 3. Efficiency score ───────────────────────────────────────────────
         efficiency_target = self._eval.get("efficiency_target", len(tool_calls))
         actual_calls = len(tool_calls)
         extra = max(0, actual_calls - efficiency_target)
@@ -194,29 +214,24 @@ class Scorer:
             bd.efficiency = 1.0
         bd.penalty_extra_calls = extra * penalty_per
 
-        # ── 4. Self-correction score ──────────────────────────────────────────
         bd.self_correction = self._score_self_correction(tool_calls)
 
-        # ── 5. Path quality score ─────────────────────────────────────────────
         backtrack_count, bd.path_quality = self._score_path_quality(tool_calls)
         bd.penalty_backtracks = backtrack_count * self._penalties_cfg.get("backtrack", 1.0)
 
-        # ── 6. Timeout penalty ────────────────────────────────────────────────
         if timed_out:
             bd.penalty_timeout = self._penalties_cfg.get("timeout", 5.0)
 
         logger.info("Score: %.1f/100 %s", bd.total, bd.summary())
         return bd
 
-    # ── Criterion evaluators ──────────────────────────────────────────────────
-
     def _evaluate_criterion(
         self,
         criterion: dict[str, Any],
         *,
         eval_type: str,
-        container_exec: Any | None,
-        judge_fn: Any | None,
+        container_exec: Callable[[str], tuple[int, str]] | None,
+        judge_fn: Callable[[str], str] | None,
         tool_calls: list[dict[str, Any]],
     ) -> CriterionResult:
         cid    = criterion["id"]
@@ -249,7 +264,7 @@ class Scorer:
 
     @staticmethod
     def _check_script(
-        command: str, container_exec: Any | None
+        command: str, container_exec: Callable[[str], tuple[int, str]] | None
     ) -> tuple[bool, str]:
         """Run a shell check command; exit code 0 = pass."""
         if container_exec is None:
@@ -271,7 +286,7 @@ class Scorer:
         return False, f"'{expected}' not found in any tool call output"
 
     @staticmethod
-    def _check_llm_judge(description: str, judge_fn: Any | None) -> tuple[bool, str]:
+    def _check_llm_judge(description: str, judge_fn: Callable[[str], str] | None) -> tuple[bool, str]:
         """Ask an LLM judge to evaluate the criterion."""
         if judge_fn is None:
             return False, "No judge_fn provided for llm_judge evaluation"
@@ -283,8 +298,6 @@ class Scorer:
         verdict = judge_fn(prompt).strip()
         passed = verdict.upper().startswith("PASS")
         return passed, verdict[:300]
-
-    # ── Dimension scorers ─────────────────────────────────────────────────────
 
     @staticmethod
     def _score_self_correction(tool_calls: list[dict[str, Any]]) -> float:
