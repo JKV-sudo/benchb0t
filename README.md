@@ -5,7 +5,7 @@
 
 ---
 
-![Beschreibung](pic1.png)
+![Long run](pic1.png)
 
 ## Concept
 
@@ -20,7 +20,7 @@ benchb0t treats each benchmark task as a **level** in a game.
 Level 1 ──► Level 2 ──► Level 3 ──► …
  ★☆☆☆☆       ★★★☆☆       ★★★★☆
 ```
-
+![1v1](pic2.png)
 ---
 
 ## Quick Start
