@@ -219,6 +219,130 @@ def assistant_tool_schemas(page: str) -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "edit_benchbot_level",
+                "description": (
+                    "Edit an existing benchb0t level by loading it, applying a patch, "
+                    "validating it, and saving it back to levels/<id>.yaml. "
+                    "Only fields that are provided are overwritten."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "level_id": {"type": "string", "description": "Existing level id, stem, or filename"},
+                        "name": {"type": "string"},
+                        "difficulty": {"type": "integer", "minimum": 1, "maximum": 5},
+                        "category": {"type": "string"},
+                        "tags": {"type": "array", "items": {"type": "string"}},
+                        "image": {"type": "string"},
+                        "working_dir": {"type": "string"},
+                        "apt": {"type": "array", "items": {"type": "string"}},
+                        "pip": {"type": "array", "items": {"type": "string"}},
+                        "npm": {"type": "array", "items": {"type": "string"}},
+                        "setup_script": {"type": "string"},
+                        "instruction": {"type": "string"},
+                        "max_turns": {"type": "integer", "minimum": 1},
+                        "timeout_s": {"type": "integer", "minimum": 1},
+                        "tools": {"type": "array", "items": {"type": "string", "enum": sorted(KNOWN_TOOLS)}},
+                        "efficiency_target": {"type": "integer", "minimum": 0},
+                        "criteria": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "check": {"type": "string"},
+                                    "weight": {"type": "number"},
+                                },
+                                "required": ["id", "description", "check"],
+                            },
+                        },
+                        "preview_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+                        "preview_path": {"type": "string"},
+                        "save": {"type": "boolean"},
+                    },
+                    "required": ["level_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_benchbot_stats",
+                "description": "Return aggregate benchmark statistics: total runs, models, levels, average score, best score, stars, timeouts.",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_benchbot_run_history",
+                "description": "Return recent benchmark runs with filters.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "model": {"type": "string"},
+                        "level_id": {"type": "string"},
+                    },
+                    "required": [],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_benchbot_run_detail",
+                "description": "Return full details for a single run including DB record and replay events.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "run_id": {"type": "string"},
+                    },
+                    "required": ["run_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "compare_benchbot_runs",
+                "description": "Compare two benchmark runs side-by-side.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "left_run_id": {"type": "string"},
+                        "right_run_id": {"type": "string"},
+                    },
+                    "required": ["left_run_id", "right_run_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_benchbot_model_detail",
+                "description": "Return per-level breakdown for a specific model (the 'Dex' view).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "model": {"type": "string"},
+                    },
+                    "required": ["model"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_benchbot_models",
+                "description": "List all distinct models that have runs stored in the database.",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
     ]
     return tools
 
@@ -274,8 +398,22 @@ def chat_request_to_provider_dicts(req: ChatRequest, creds: dict[str, Any]) -> l
     return providers
 
 
-def build_initial_assistant_state(req: ChatRequest, creds: dict[str, Any]) -> dict[str, Any]:
+def build_initial_assistant_state(req: ChatRequest, creds: dict[str, Any], *, stored_providers: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     providers = chat_request_to_provider_dicts(req, creds)
+    if not providers and stored_providers:
+        for provider in stored_providers:
+            base_url = str(provider.get("base_url", "")).strip()
+            model = str(provider.get("model", "")).strip()
+            if not base_url or not model:
+                continue
+            providers.append(
+                {
+                    "base_url": base_url,
+                    "model": model,
+                    "api_key": str(provider.get("api_key", "")).strip(),
+                    "label": str(provider.get("label", model)).strip(),
+                }
+            )
     return {
         "providers": providers,
         "parallel_compare": bool(req.parallel_compare or len(providers) > 1),

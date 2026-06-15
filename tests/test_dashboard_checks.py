@@ -77,7 +77,6 @@ def test_detect_providers_sync_uses_env_and_local_probes(
 
     assert "claude" in provider_ids
     assert "openai" in provider_ids
-    assert "opencode-env" in provider_ids
     assert "ollama" in provider_ids
     ollama = next(provider for provider in providers if provider["id"] == "ollama")
     assert ollama["models"] == ["llama3", "qwen"]

@@ -2,18 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>benchb0t · level builder</title>
-<!-- Shared theme variables and utilities (consolidated for DRY) -->
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:#0a0800; --panel:#100d00; --panel2:#151000;
-  --b1:#241e00; --b2:#3a3000; --b3:#4a3f00;
-  --y1:#ffd700; --y2:#ffb300; --y3:#ff8c00;
-  --ydk:#7a6000; --text:#ffe87a; --dim:#5a4a10; --dim2:#3a3000;
-  --green:#39ff14; --red:#ff3a3a;
-  --font:'Press Start 2P',monospace;
-}
+    <title>benchb0t · level builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+    :root {
+      --bg:#0a0800; --panel:#100d00; --panel2:#151000;
+      --b1:#241e00; --b2:#3a3000; --b3:#4a3f00;
+      --y1:#ffd700; --y2:#ffb300; --y3:#ff8c00;
+      --ydk:#7a6000; --text:#ffe87a; --dim:#5a4a10; --dim2:#3a3000;
+      --green:#39ff14; --red:#ff3a3a;
+      --font:'Press Start 2P',monospace;
+    }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:10px;overflow:hidden}
 body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
@@ -256,6 +255,45 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
 }
 .cf-send:hover{background:var(--y2)}
 .cf-send:disabled{background:var(--b2);color:var(--dim);cursor:not-allowed}
+
+/* ── Builder AI provider selector ── */
+.cf-provider-bar {
+  display:flex;align-items:center;gap:6px;
+  padding:6px 10px;border-bottom:1px solid var(--b1);
+  background:var(--panel2);flex-shrink:0;
+}
+.cf-provider-label{font-size:5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.cf-provider-select{
+  flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:6px;padding:4px 5px;outline:none;cursor:pointer;
+}
+.cf-provider-select:focus{border-color:var(--y1)}
+.cf-provider-select option{background:var(--panel)}
+.cf-provider-btn{
+  background:none;border:1px solid var(--b3);color:var(--dim);
+  font-family:var(--font);font-size:6px;cursor:pointer;padding:3px 6px;
+}
+.cf-provider-btn:hover{border-color:var(--y1);color:var(--y1)}
+.cf-provider-panel{
+  display:none;flex-direction:column;gap:6px;
+  padding:8px 10px;border-bottom:1px solid var(--b1);
+  background:var(--panel2);flex-shrink:0;
+}
+.cf-provider-panel.open{display:flex}
+.cf-provider-panel .field{display:flex;flex-direction:column;gap:3px}
+.cf-provider-panel .field label{font-size:5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.cf-provider-panel .field input{
+  background:var(--bg);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:6px;padding:5px 6px;outline:none;
+}
+.cf-provider-panel .field input:focus{border-color:var(--y1)}
+.cf-provider-save{
+  background:var(--y1);color:#000;border:none;
+  font-family:var(--font);font-size:6px;letter-spacing:1px;
+  padding:6px;cursor:pointer;text-align:center;
+}
+.cf-provider-save:hover{background:var(--y2)}
+.cf-provider-status{font-size:5px;color:var(--dim);min-height:10px}
 </style>
 </head>
 <body>
@@ -607,6 +645,7 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
 
 </div><!-- /root -->
 
+<script src="/static/shared-utils.js"></script>
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 const ALL_TOOLS = ['bash','read_file','write_file','http_request','list_dir','run_background','patch_file'];
@@ -1047,7 +1086,7 @@ function copyYaml() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-// val() and esc() are now in shared-utils.js for DRY consolidation
+// esc() is in shared-utils.js for DRY consolidation
 
 function setField(id, v) {
   const el = document.getElementById(id);
@@ -1087,6 +1126,11 @@ function setField(id, v) {
       cs.value = s;
     }
   }
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
 }
 
 // ── Preset selects ────────────────────────────────────────────────────────────
@@ -1318,20 +1362,108 @@ function applyTemplate(type) {
 let cfOpen    = false;
 let cfBusy    = false;
 let cfHistory = [];
+let _cfProviders = [];
+let _cfProvider = { base_url: '', model: '', api_key: '', label: '' };
 
-function toggleCF() {
+async function toggleCF() {
   cfOpen = !cfOpen;
   document.getElementById('cf-panel').classList.toggle('open', cfOpen);
   document.getElementById('cf-fab').classList.toggle('active', cfOpen);
   if (cfOpen) {
     document.getElementById('cf-input').focus();
-    const lbl = document.getElementById('cf-model-lbl');
-    if (!lbl.textContent.trim() || lbl.textContent === '—') {
-      fetch('/api/credentials').then(r => r.json()).then(d => {
-        lbl.textContent = d.model || d.providers?.[0]?.model || 'not configured';
-      }).catch(() => {});
-    }
+    await loadCFProviders();
   }
+}
+
+async function loadCFProviders() {
+  try {
+    const stored = await fetch('/api/providers').then(r => r.json());
+    _cfProviders = Array.isArray(stored) ? stored : [];
+    if (!_cfProviders.length) {
+      const c = await fetch('/api/credentials').then(r => r.json());
+      if (c.providers?.[0]) _cfProviders = c.providers;
+      else if (c.base_url && c.model) {
+        _cfProviders = [{
+          base_url: c.base_url,
+          model: c.model,
+          api_key: c.api_key || '',
+          label: c.model,
+          source: 'legacy:creds',
+          enabled: true,
+        }];
+      }
+    }
+    renderCFProviderBar();
+    if (!_cfProvider.base_url && _cfProviders[0]) {
+      setCFProvider(_cfProviders[0]);
+    }
+  } catch (e) {
+    _cfProviders = [];
+  }
+}
+
+function renderCFProviderBar() {
+  const sel = document.getElementById('cf-provider-select');
+  if (!sel) return;
+  if (!_cfProviders.length) {
+    sel.innerHTML = '<option value="__manual__">— manual —</option>';
+    return;
+  }
+  const selectedKey = _cfProvider.base_url + '|' + _cfProvider.model;
+  sel.innerHTML = _cfProviders.map(p => {
+    const key = p.base_url + '|' + p.model;
+    const host = p.base_url.replace(/^https?:\/\//, '');
+    const label = esc(p.label || p.model || 'provider');
+    return `<option value="${esc(key)}" ${key === selectedKey ? 'selected' : ''}>${label} @ ${esc(host)}</option>`;
+  }).join('') + '<option value="__manual__">— manual —</option>';
+}
+
+function setCFProvider(provider) {
+  _cfProvider = {
+    base_url: provider.base_url || '',
+    model: provider.model || '',
+    api_key: provider.api_key || '',
+    label: provider.label || provider.model || ''
+  };
+  const lbl = document.getElementById('cf-model-lbl');
+  if (lbl) lbl.textContent = _cfProvider.label || _cfProvider.model || 'not configured';
+  const urlIn = document.getElementById('cf-provider-url');
+  const modelIn = document.getElementById('cf-provider-model');
+  const keyIn = document.getElementById('cf-provider-key');
+  if (urlIn) urlIn.value = _cfProvider.base_url;
+  if (modelIn) modelIn.value = _cfProvider.model;
+  if (keyIn) keyIn.value = _cfProvider.api_key;
+  renderCFProviderBar();
+}
+
+function onCFProviderSelect(value) {
+  if (value === '__manual__') {
+    document.getElementById('cf-provider-panel').classList.add('open');
+    return;
+  }
+  document.getElementById('cf-provider-panel').classList.remove('open');
+  const [base_url, ...rest] = value.split('|');
+  const model = rest.join('|');
+  const p = _cfProviders.find(x => x.base_url === base_url && x.model === model);
+  if (p) setCFProvider(p);
+}
+
+function toggleCFProviderPanel() {
+  document.getElementById('cf-provider-panel').classList.toggle('open');
+}
+
+function applyCFProvider() {
+  const base_url = document.getElementById('cf-provider-url').value.trim();
+  const model = document.getElementById('cf-provider-model').value.trim();
+  const api_key = document.getElementById('cf-provider-key').value.trim();
+  const status = document.getElementById('cf-provider-status');
+  if (!base_url || !model) {
+    if (status) status.textContent = 'URL and model required';
+    return;
+  }
+  setCFProvider({base_url, model, api_key, label: model, source: 'manual', enabled: true});
+  document.getElementById('cf-provider-panel').classList.remove('open');
+  if (status) status.textContent = '';
 }
 
 // Serialize current form to YAML string for the AI context
@@ -1383,10 +1515,13 @@ async function sendBuilderAI() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        messages:     cfHistory,
-        page:         'builder',
-        page_context: serializeLevelContext(),
+        messages:      cfHistory,
+        page:          'builder',
+        page_context:  serializeLevelContext(),
         allow_control: true,
+        base_url:      _cfProvider.base_url,
+        model:         _cfProvider.model,
+        api_key:       _cfProvider.api_key,
       }),
     });
     const reader  = res.body.getReader();
@@ -1405,7 +1540,18 @@ async function sendBuilderAI() {
         try {
           const ev = JSON.parse(payload);
           if (ev.error) { bodyEl.textContent = 'Error: ' + ev.error; aEl.classList.add('error'); break; }
-          if (ev._type === 'tool' || ev._type === 'level_patch' || ev._type === 'level_saved') {
+          const isPatchEvent = ev._type === 'level_patch' || ev._type === 'level_saved' || ev._type === 'tool_result';
+          if (ev._type === 'tool_calls' && Array.isArray(ev.tool_calls)) {
+            if (full) full += '\n';
+            full += ev.tool_calls.map(tc => `[${tc.name}]`).join(' ');
+            bodyEl.textContent = full;
+            bodyEl.appendChild(cursor);
+          } else if (ev._type === 'tool_start' && ev.tool) {
+            if (full) full += '\n';
+            full += `[${ev.tool}] …`;
+            bodyEl.textContent = full;
+            bodyEl.appendChild(cursor);
+          } else if (isPatchEvent || ev._type === 'tool') {
             if (ev.message) {
               if (full) full += '\n';
               full += `[${ev.tool || ev._type}] ${ev.message}`;
@@ -1486,7 +1632,7 @@ function applyLevelPatch(patch) {
 
   for (const [key, fieldId] of Object.entries(fieldMap)) {
     if (patch[key] !== undefined) {
-      const v = Array.isArray(patch[key]) ? patch[key].join(' ') : patch[key];
+      const v = Array.isArray(patch[key]) ? patch[key].join(', ') : patch[key];
       setField(fieldId, String(v));
     }
   }
@@ -1519,7 +1665,30 @@ function applyLevelPatch(patch) {
   <div class="cf-hdr">
     <span class="cf-title">BENCHBOT-AI</span>
     <span class="cf-model" id="cf-model-lbl">—</span>
+    <button class="cf-provider-btn" id="cf-provider-toggle" onclick="toggleCFProviderPanel()" title="Configure chat provider">⚙</button>
     <button class="cf-close" onclick="toggleCF()">✕</button>
+  </div>
+  <div class="cf-provider-bar" id="cf-provider-bar">
+    <span class="cf-provider-label">Model</span>
+    <select class="cf-provider-select" id="cf-provider-select" onchange="onCFProviderSelect(this.value)">
+      <option value="">loading…</option>
+    </select>
+  </div>
+  <div class="cf-provider-panel" id="cf-provider-panel">
+    <div class="field">
+      <label>Base URL</label>
+      <input type="text" id="cf-provider-url" placeholder="http://localhost:11434/v1">
+    </div>
+    <div class="field">
+      <label>Model</label>
+      <input type="text" id="cf-provider-model" placeholder="llama3">
+    </div>
+    <div class="field">
+      <label>API Key</label>
+      <input type="password" id="cf-provider-key" placeholder="(empty for local)">
+    </div>
+    <button class="cf-provider-save" onclick="applyCFProvider()">Use this provider</button>
+    <div class="cf-provider-status" id="cf-provider-status"></div>
   </div>
   <div class="cf-ctx">◆ level editor · patch proposals · apply to form</div>
   <div class="cf-msgs" id="cf-msgs">

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -90,6 +91,13 @@ class _FakeClient:
         return None
 
 
+from pathlib import Path
+
+import pytest
+
+from framework.container import LevelContainer
+
+
 def test_resolve_env_parse_volumes_and_cpu_quota(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BENCHBOT_SECRET", "abc123")
     container = LevelContainer(
@@ -104,7 +112,7 @@ def test_resolve_env_parse_volumes_and_cpu_quota(monkeypatch: pytest.MonkeyPatch
         "MODE": "dev",
     }
     parsed = container._parse_volumes(["./data:/workspace/data:ro", "/tmp/cache"])
-    assert parsed["/Users/jacobs/Documents/Claude/Projects/benchb0t/data"]["bind"] == "/workspace/data"
+    assert parsed[str(Path("./data").resolve())]["bind"] == "/workspace/data"
     assert parsed["/tmp/cache"]["bind"] == "/tmp/cache"
 
 

@@ -33,12 +33,70 @@ def check_docker() -> dict[str, Any]:
         return {"ok": False, "msg": short or "daemon not reachable"}
 
 
+def _classify_connection_error(exc: Exception, base_url: str) -> dict[str, Any]:
+    """Return a machine-readable diagnosis plus human-friendly tip."""
+    text = str(exc).lower()
+    host = base_url.split("://", 1)[-1].split("/")[0]
+
+    if isinstance(exc, urllib.error.HTTPError):
+        code = exc.code
+        if code == 401:
+            return {
+                "kind": "auth",
+                "message": f"HTTP 401 — wrong API key for {host}",
+                "tip": "Check the API key for this provider.",
+            }
+        if code == 403:
+            return {
+                "kind": "auth",
+                "message": f"HTTP 403 — access denied on {host}",
+                "tip": "Verify the API key has permission to list models.",
+            }
+        if code == 404:
+            return {
+                "kind": "endpoint",
+                "message": f"HTTP 404 — /models not found on {host}",
+                "tip": "This host may not be an OpenAI-compatible endpoint. Try the full /v1 URL.",
+            }
+        return {
+            "kind": "http",
+            "message": f"HTTP {code} on {host}",
+            "tip": "Endpoint reachable but returned an error.",
+        }
+
+    if "certificate" in text or "ssl" in text:
+        return {
+            "kind": "tls",
+            "message": f"TLS certificate problem with {host}",
+            "tip": "Use http:// instead of https:// for local servers, or update system certificates.",
+        }
+
+    if "timeout" in text or isinstance(exc, socket.timeout):
+        return {
+            "kind": "timeout",
+            "message": f"Connection to {host} timed out",
+            "tip": "The host is slow or the firewall is blocking the port.",
+        }
+
+    if "refused" in text or "nodename" in text or "name or service" in text:
+        return {
+            "kind": "network",
+            "message": f"Cannot reach {host}",
+            "tip": "Make sure the server is running and the URL/port are correct.",
+        }
+
+    return {
+        "kind": "unknown",
+        "message": str(exc).split("\n")[0][:72],
+        "tip": "Could not connect. Check the URL and network.",
+    }
+
+
 def check_api(base_url: str) -> dict[str, Any]:
     if not base_url:
         return {"ok": None, "msg": "not configured"}
 
-    normalized = base_url if base_url.startswith(("http://", "https://")) else "http://" + base_url
-    normalized = normalized.rstrip("/")
+    normalized = normalize_url(base_url)
     try:
         req = urllib.request.Request(normalized + "/models", method="GET")
         with urllib.request.urlopen(req, timeout=3) as resp:
@@ -46,19 +104,71 @@ def check_api(base_url: str) -> dict[str, Any]:
     except urllib.error.HTTPError as exc:
         return {"ok": True, "msg": f"reachable · HTTP {exc.code}"}
     except Exception as exc:
-        short = str(exc).split("\n")[0][:72]
-        return {"ok": False, "msg": short}
+        short = str(exc).split("\n")[0].split("(")[0].strip()
+        return {"ok": False, "msg": short or "unreachable"}
 
 
 def probe_local_oai(base_url: str, timeout: float = 1.5) -> list[str]:
-    url = base_url.rstrip("/") + "/models"
+    url = normalize_url(base_url).rstrip("/") + "/models"
     req = urllib.request.Request(url, method="GET")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read())
         return [model["id"] for model in data.get("data", [])]
 
 
-def detect_providers_sync() -> list[dict[str, Any]]:
+def diagnose_provider(base_url: str, api_key: str = "", timeout: float = 3.0) -> dict[str, Any]:
+    """
+    Probe a single OpenAI-compatible endpoint and return a full diagnosis.
+
+    Includes reachability, model list, error classification and a tip.
+    """
+    normalized = normalize_url(base_url)
+    result: dict[str, Any] = {
+        "base_url": normalized,
+        "api_key": api_key,
+        "reachable": False,
+        "models": [],
+        "model": "",
+        "kind": "unknown",
+        "message": "",
+        "tip": "",
+    }
+
+    try:
+        models = probe_local_oai(normalized, timeout=timeout)
+        result.update(
+            {
+                "reachable": True,
+                "models": models,
+                "model": models[0] if models else "",
+                "kind": "ok",
+                "message": f"reachable · {len(models)} model(s)",
+                "tip": "Ready to use.",
+            }
+        )
+        return result
+    except Exception as exc:
+        diag = _classify_connection_error(exc, normalized)
+        result.update(
+            {
+                "reachable": False,
+                "kind": diag["kind"],
+                "message": diag["message"],
+                "tip": diag["tip"],
+            }
+        )
+        return result
+
+
+def detect_providers_sync(
+    extra_hosts: list[str] | None = None,
+    timeout: float = 1.5,
+) -> list[dict[str, Any]]:
+    """
+    Probe all known provider locations (env vars + common local ports).
+    Returns a JSON array of available providers with pre-filled config.
+    Used by the dashboard to show one-click provider presets.
+    """
     detected: list[dict[str, Any]] = []
 
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -76,6 +186,10 @@ def detect_providers_sync() -> list[dict[str, Any]]:
                     "claude-sonnet-4-5",
                     "claude-haiku-4-5",
                 ],
+                "reachable": True,
+                "kind": "ok",
+                "message": "configured from environment",
+                "tip": "Click to add.",
             }
         )
 
@@ -90,8 +204,25 @@ def detect_providers_sync() -> list[dict[str, Any]]:
                 "api_key": openai_key,
                 "source": "env:OPENAI_API_KEY",
                 "models": ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
+                "reachable": True,
+                "kind": "ok",
+                "message": "configured from environment",
+                "tip": "Click to add.",
             }
         )
+
+    env_base_url = os.getenv("BENCHBOT_BASE_URL", "")
+    env_api_key = os.getenv("BENCHBOT_API_KEY", "")
+    if env_base_url:
+        entry = diagnose_provider(env_base_url, env_api_key, timeout=timeout)
+        entry.update(
+            {
+                "id": "env-benchbot",
+                "label": f"env: BENCHBOT_BASE_URL",
+                "source": "env:BENCHBOT_BASE_URL",
+            }
+        )
+        detected.append(entry)
 
     local_candidates = [
         {
@@ -124,6 +255,17 @@ def detect_providers_sync() -> list[dict[str, Any]]:
         },
     ]
 
+    for host in (extra_hosts or []):
+        local_candidates.append(
+            {
+                "id": f"custom-{host}",
+                "label": host,
+                "base_url": host,
+                "api_key": "",
+                "source": f"custom:{host}",
+            }
+        )
+
     open_code_url = os.getenv("OPENCODE_BASE_URL", "")
     if open_code_url:
         local_candidates.insert(
@@ -138,16 +280,17 @@ def detect_providers_sync() -> list[dict[str, Any]]:
         )
 
     for candidate in local_candidates:
-        try:
-            models = probe_local_oai(candidate["base_url"], timeout=1.2)
-            entry = dict(candidate)
-            entry["models"] = models
-            if models:
-                entry["model"] = models[0]
+        entry = diagnose_provider(candidate["base_url"], candidate.get("api_key", ""), timeout=timeout)
+        entry.update(
+            {
+                "id": candidate["id"],
+                "label": candidate["label"],
+                "source": candidate["source"],
+                "api_key": candidate.get("api_key", ""),
+            }
+        )
+        if entry["reachable"] or candidate.get("source", "").startswith("custom:"):
             detected.append(entry)
-        except (urllib.error.URLError, OSError, json.JSONDecodeError, socket.timeout):
-            # Local provider unreachable — skip it
-            pass
 
     return detected
 

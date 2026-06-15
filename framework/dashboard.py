@@ -50,12 +50,20 @@ from framework.dashboard_checks import (
     check_api,
     check_docker,
     detect_providers_sync,
+    diagnose_provider,
     probe_preview_status,
 )
 from framework.dashboard_compare import build_compare_payload
 from framework.dashboard_context import build_chat_context
 from framework.dashboard_history import build_history_inventory, find_run_log_path
-from framework.dashboard_models import ChatRequest, RunRequest, SaveLevelRequest
+from framework.dashboard_models import (
+    ChatRequest,
+    ProviderRequest,
+    RunRequest,
+    SaveLevelRequest,
+    SaveProvidersRequest,
+    TestProviderRequest,
+)
 from framework.dashboard_replay import (
     build_artifact_records,
     build_replay_payload,
@@ -115,7 +123,14 @@ async def _start_run_impl(req: RunRequest) -> tuple[dict[str, Any], int]:
         if not providers:
             return {"error": "no provider configured"}, 400
 
-        state.save_provider_creds(providers)
+        # Back-fill any missing fields from stored providers if they match base_url/model
+        stored = {p["base_url"]: p for p in state.load_providers()}
+        for provider in providers:
+            key = provider["base_url"]
+            if key in stored and not provider.get("api_key"):
+                provider["api_key"] = stored[key].get("api_key", "")
+
+        state.save_providers(providers)
 
         harnesses = sorted((state.project_dir / "harnesses").glob("*.yaml"))
         if not harnesses:
@@ -326,10 +341,17 @@ async def _execute_dashboard_assistant_tool(
         }
 
     if tool_name == "create_benchbot_level":
+        level_id = str(args.get("id", "")).strip()
+        if not level_id:
+            return {
+                "ok": False,
+                "message": "Level id is missing or empty. Please provide a valid id like l42-my-level.",
+                "data": {},
+            }
         patch = build_level_patch_from_args(args)
         content = render_level_yaml_from_patch(patch)
         save_requested = bool(args.get("save", page != "builder"))
-        filename = str(args.get("filename", "")).strip() or f"{patch['id']}.yaml"
+        filename = f"{patch['id']}.yaml"
         saved_path = ""
         if save_requested:
             saved_path = str(save_level_content(state.project_dir, filename, content))
@@ -357,6 +379,149 @@ async def _execute_dashboard_assistant_tool(
             result["ui_patch"] = {"level_patch": patch}
         return result
 
+    if tool_name == "edit_benchbot_level":
+        level_ref = str(args.get("level_id", "")).strip()
+        if not level_ref:
+            return {"ok": False, "message": "level_id required", "data": {}}
+        level_path = resolve_level_reference(state.project_dir, level_ref)
+        if not Path(level_path).exists():
+            return {"ok": False, "message": f"Level {level_ref!r} not found", "data": {}}
+        raw_cfg = yaml.safe_load(Path(level_path).read_text(encoding="utf-8")) or {}
+        lvl = raw_cfg.get("level", {})
+        cont = raw_cfg.get("container", {})
+        task = raw_cfg.get("task", {})
+        pkgs = cont.get("packages", {})
+        prev = raw_cfg.get("preview", {})
+        eval_cfg = raw_cfg.get("evaluation", {})
+        existing_criteria = eval_cfg.get("criteria", [])
+
+        patch = build_level_patch_from_args({
+            "id": lvl.get("id", ""),
+            "name": args.get("name", lvl.get("name", "")),
+            "difficulty": args.get("difficulty", lvl.get("difficulty", 1)),
+            "category": args.get("category", lvl.get("category", "general")),
+            "tags": args.get("tags", lvl.get("tags", [])),
+            "image": args.get("image", cont.get("image", "python:3.11-slim")),
+            "working_dir": args.get("working_dir", cont.get("working_dir", "/workspace")),
+            "apt": args.get("apt", pkgs.get("apt", [])),
+            "pip": args.get("pip", pkgs.get("pip", [])),
+            "npm": args.get("npm", pkgs.get("npm", [])),
+            "setup_script": args.get("setup_script", cont.get("setup_script", "")),
+            "instruction": args.get("instruction", task.get("instruction", "")),
+            "max_turns": args.get("max_turns", task.get("max_turns", 15)),
+            "timeout_s": args.get("timeout_s", task.get("timeout_s", 90)),
+            "tools": args.get("tools", raw_cfg.get("tools", ["bash"])),
+            "efficiency_target": args.get("efficiency_target", eval_cfg.get("efficiency_target", 5)),
+            "criteria": args.get("criteria", [
+                {
+                    "id": c.get("id", ""),
+                    "description": c.get("description", ""),
+                    "check": c.get("check", ""),
+                    "weight": c.get("weight", 1.0),
+                }
+                for c in existing_criteria
+            ]),
+            "preview_port": args.get("preview_port", prev.get("port")),
+            "preview_path": args.get("preview_path", prev.get("path", "/")),
+            "retry_enabled": args.get("retry_enabled", bool(raw_cfg.get("forced_retry", {}).get("enabled", False))),
+            "retry_max": args.get("retry_max", raw_cfg.get("forced_retry", {}).get("max_retries", 2)),
+            "retry_penalty": args.get("retry_penalty", raw_cfg.get("forced_retry", {}).get("penalty_per_retry", 10.0)),
+            "retry_threshold": args.get("retry_threshold", raw_cfg.get("forced_retry", {}).get("completion_threshold", 0.5)),
+        })
+        content = render_level_yaml_from_patch(patch)
+        save_requested = bool(args.get("save", True))
+        filename = Path(level_path).name
+        saved_path = ""
+        if save_requested:
+            saved_path = str(save_level_content(state.project_dir, filename, content))
+        else:
+            validate_level_content(state.project_dir, filename, content)
+        message = (
+            f"Updated level {patch['id']} and saved it to levels/{Path(saved_path).name}."
+            if saved_path
+            else f"Updated draft for level {patch['id']}."
+        )
+        result = {
+            "ok": True,
+            "message": message,
+            "event_type": "level_saved" if saved_path else "level_patch",
+            "data": {"level_id": patch["id"], "filename": filename, "saved_path": saved_path, "content": content},
+            "level_patch": patch,
+        }
+        if page == "builder":
+            result["ui_patch"] = {"level_patch": patch}
+        return result
+
+    if tool_name == "get_benchbot_stats":
+        summary = state.store.get_summary() if state.store else {}
+        return {
+            "ok": True,
+            "message": f"Stats: {summary.get('total_runs', 0)} runs across {summary.get('total_models', 0)} models and {summary.get('total_levels', 0)} levels.",
+            "data": summary,
+        }
+
+    if tool_name == "get_benchbot_run_history":
+        limit = max(1, min(int(args.get("limit", 20) or 20), 100))
+        model = str(args.get("model", "") or "")
+        level_id = str(args.get("level_id", "") or "")
+        runs = state.store.get_runs(limit=limit, model=model, level_id=level_id) if state.store else []
+        return {
+            "ok": True,
+            "message": f"Found {len(runs)} run(s).",
+            "data": {"runs": runs},
+        }
+
+    if tool_name == "get_benchbot_run_detail":
+        run_id = str(args.get("run_id", "") or "")
+        if not run_id:
+            return {"ok": False, "message": "run_id required", "data": {}}
+        payload, status = _load_replay_payload_for_run(run_id)
+        if status != 200:
+            return {"ok": False, "message": payload.get("error", "run not found"), "data": payload}
+        db_run = state.store.get_run_by_id(run_id) if state.store else None
+        return {
+            "ok": True,
+            "message": f"Run {run_id} loaded.",
+            "data": {"run": db_run, "replay": payload},
+        }
+
+    if tool_name == "compare_benchbot_runs":
+        left = str(args.get("left_run_id", "") or "")
+        right = str(args.get("right_run_id", "") or "")
+        if not left or not right:
+            return {"ok": False, "message": "left_run_id and right_run_id required", "data": {}}
+        left_payload, left_status = _load_replay_payload_for_run(left)
+        if left_status != 200:
+            return {"ok": False, "message": left_payload.get("error", "left run not found"), "data": left_payload}
+        right_payload, right_status = _load_replay_payload_for_run(right)
+        if right_status != 200:
+            return {"ok": False, "message": right_payload.get("error", "right run not found"), "data": right_payload}
+        comparison = build_compare_payload(left_payload, right_payload)
+        return {
+            "ok": True,
+            "message": f"Compared {left} vs {right}.",
+            "data": comparison,
+        }
+
+    if tool_name == "get_benchbot_model_detail":
+        model = str(args.get("model", "") or "")
+        if not model:
+            return {"ok": False, "message": "model required", "data": {}}
+        detail = state.store.get_model_detail(model) if state.store else {}
+        return {
+            "ok": True,
+            "message": f"Model detail for {model} loaded.",
+            "data": detail,
+        }
+
+    if tool_name == "list_benchbot_models":
+        models = state.store.get_distinct_models() if state.store else []
+        return {
+            "ok": True,
+            "message": f"Found {len(models)} model(s).",
+            "data": {"models": models},
+        }
+
     return {
         "ok": False,
         "message": f"Unknown dashboard assistant tool: {tool_name}",
@@ -365,6 +530,63 @@ async def _execute_dashboard_assistant_tool(
 
 
 # ── REST API ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/onboarding/status")
+def onboarding_status() -> JSONResponse:
+    """Return whether the user still needs to configure a provider."""
+    if not state.store:
+        return JSONResponse({"needs_onboarding": True, "providers": []})
+    providers = state.load_providers()
+    return JSONResponse({
+        "needs_onboarding": not state.has_providers(),
+        "providers": providers,
+    })
+
+
+@app.get("/api/onboarding/detect")
+async def onboarding_detect() -> JSONResponse:
+    """Auto-detect reachable providers plus legacy/env providers."""
+    loop = asyncio.get_event_loop()
+    detected = await loop.run_in_executor(None, detect_providers_sync)
+    return JSONResponse({"providers": detected})
+
+
+@app.post("/api/onboarding/providers/test")
+async def onboarding_test_providers(req: TestProviderRequest) -> JSONResponse:
+    """Test arbitrary URLs and return full diagnoses."""
+    loop = asyncio.get_event_loop()
+    results = await loop.run_in_executor(
+        None,
+        lambda: [diagnose_provider(url) for url in req.urls if url.strip()],
+    )
+    return JSONResponse({"results": results})
+
+
+@app.post("/api/onboarding/providers/save")
+async def onboarding_save_providers(req: SaveProvidersRequest) -> JSONResponse:
+    """Persist selected providers and return the saved list."""
+    providers: list[dict[str, Any]] = []
+    for provider in req.providers:
+        if not provider.base_url.strip() or not provider.model.strip():
+            continue
+        providers.append({
+            "id": provider.id or f"p{int(time.time() * 1000)}",
+            "label": provider.label or provider.model,
+            "base_url": normalize_url(provider.base_url),
+            "model": provider.model,
+            "api_key": provider.api_key,
+            "source": provider.source or "manual",
+            "enabled": provider.enabled,
+        })
+    state.save_providers(providers)
+    return JSONResponse({"status": "saved", "providers": providers})
+
+
+@app.get("/api/providers")
+def list_providers() -> JSONResponse:
+    """Return saved providers for the sidebar run form."""
+    return JSONResponse(state.load_providers())
+
 
 @app.get("/api/levels")
 def list_levels() -> JSONResponse:
@@ -404,8 +626,20 @@ def get_credentials() -> JSONResponse:
 
 @app.post("/api/credentials")
 async def save_credentials(req: RunRequest) -> JSONResponse:
-    state.save_provider_creds(state.providers_from_request(req))
-    return JSONResponse({"status": "saved"})
+        providers = state.providers_from_request(req)
+        if not providers:
+            providers = [
+                {
+                    "base_url": p["base_url"],
+                    "model": p["model"],
+                    "api_key": p.get("api_key", ""),
+                    "label": p.get("label", p["model"]),
+                }
+                for p in state.load_providers()
+                if p.get("enabled")
+            ][:2]
+        state.save_providers(providers)
+        return JSONResponse({"status": "saved"})
 
 
 @app.get("/api/status")
@@ -688,11 +922,28 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
     """
     from framework.api import AgentAPI
 
-    # Resolve endpoint — request > saved creds > env
+    # Resolve endpoint — request > stored providers > saved creds > env
     creds = state.load_creds()
-    base_url = req.base_url.strip() or creds.get("base_url", "") or os.getenv("BENCHBOT_BASE_URL", "")
-    model    = req.model.strip()    or creds.get("model",    "") or os.getenv("BENCHBOT_MODEL",    "")
-    api_key  = req.api_key.strip()  or creds.get("api_key",  "") or os.getenv("BENCHBOT_API_KEY",  "benchbot")
+    stored_providers = state.load_providers()
+    first_stored = stored_providers[0] if stored_providers else {}
+    base_url = (
+        req.base_url.strip()
+        or first_stored.get("base_url", "")
+        or creds.get("base_url", "")
+        or os.getenv("BENCHBOT_BASE_URL", "")
+    )
+    model = (
+        req.model.strip()
+        or first_stored.get("model", "")
+        or creds.get("model", "")
+        or os.getenv("BENCHBOT_MODEL", "")
+    )
+    api_key = (
+        req.api_key.strip()
+        or first_stored.get("api_key", "")
+        or creds.get("api_key", "")
+        or os.getenv("BENCHBOT_API_KEY", "benchbot")
+    )
 
     if not base_url or not model:
         async def _err():
@@ -720,7 +971,7 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
                 api_key=api_key or "benchbot",
                 model=model,
                 temperature=0.3,
-                max_tokens=1024,
+                max_tokens=4096,
                 timeout=60.0,
             )
             if req.page not in ("dashboard", "builder") or not req.allow_control:
@@ -729,16 +980,45 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
                         yield _json_sse({"delta": delta})
                 return
 
-            assistant_state = build_initial_assistant_state(req, creds)
+            assistant_state = build_initial_assistant_state(req, creds, stored_providers=state.load_providers())
             tool_summaries: list[str] = []
-            for _ in range(6):
-                response = client.chat(messages, tools=assistant_tool_schemas(req.page))
+            for step in range(6):
+                accumulated: list[str] = []
+
+                def _on_text_delta(delta: str) -> None:
+                    accumulated.append(delta)
+
+                response = client.chat_with_stream(
+                    messages,
+                    tools=assistant_tool_schemas(req.page),
+                    on_text_delta=_on_text_delta,
+                )
                 choice = response["choices"][0]
                 message = choice.get("message", {})
                 tool_calls = message.get("tool_calls") or []
                 content = (message.get("content") or "").strip()
 
+                if accumulated and not tool_calls:
+                    for chunk in _chunk_text("".join(accumulated)):
+                        yield _json_sse({"delta": chunk})
+
                 if tool_calls:
+                    if accumulated:
+                        for chunk in _chunk_text("".join(accumulated)):
+                            yield _json_sse({"delta": chunk})
+                    yield _json_sse(
+                        {
+                            "_type": "tool_calls",
+                            "tool_calls": [
+                                {
+                                    "id": tc.get("id", ""),
+                                    "name": tc.get("function", {}).get("name", ""),
+                                    "arguments": tc.get("function", {}).get("arguments", ""),
+                                }
+                                for tc in tool_calls
+                            ],
+                        }
+                    )
                     messages.append(
                         {
                             "role": "assistant",
@@ -750,11 +1030,38 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
                         fn = tool_call.get("function", {})
                         call_id = tool_call.get("id") or f"tool_{idx}"
                         tool_name = fn.get("name", "")
+                        raw_args = fn.get("arguments", "{}") or "{}"
                         try:
-                            args = json.loads(fn.get("arguments", "{}") or "{}")
-                        except json.JSONDecodeError:
-                            args = {}
+                            args = json.loads(raw_args)
+                        except json.JSONDecodeError as exc:
+                            yield _json_sse(
+                                {
+                                    "_type": "tool_error",
+                                    "tool": tool_name,
+                                    "error": f"Could not parse tool arguments: {exc}",
+                                    "raw_arguments": raw_args[:500],
+                                }
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": call_id,
+                                    "name": tool_name,
+                                    "content": json.dumps(
+                                        {"error": f"invalid arguments: {exc}"},
+                                        ensure_ascii=False,
+                                    ),
+                                }
+                            )
+                            continue
 
+                        yield _json_sse(
+                            {
+                                "_type": "tool_start",
+                                "tool": tool_name,
+                                "arguments": args,
+                            }
+                        )
                         result = await _execute_dashboard_assistant_tool(
                             tool_name,
                             args,
@@ -764,7 +1071,7 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
                         tool_summaries.append(result.get("message", ""))
                         yield _json_sse(
                             {
-                                "_type": result.get("event_type", "tool"),
+                                "_type": result.get("event_type", "tool_result"),
                                 "tool": tool_name,
                                 "message": result.get("message", ""),
                                 "ui_patch": result.get("ui_patch"),
@@ -785,8 +1092,9 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
                 final_text = content or "\n".join(summary for summary in tool_summaries if summary).strip()
                 if not final_text:
                     final_text = "No additional changes were needed."
-                for chunk in _chunk_text(final_text):
-                    yield _json_sse({"delta": chunk})
+                if not accumulated:
+                    for chunk in _chunk_text(final_text):
+                        yield _json_sse({"delta": chunk})
                 break
             else:
                 yield _json_sse({"error": "assistant control loop exceeded max tool steps"})
@@ -925,6 +1233,13 @@ async def ws_endpoint(ws: WebSocket) -> None:
     finally:
         for task in tasks.values():
             task.cancel()
+
+
+# ── Static assets ──────────────────────────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+
+_STATIC_DIR = Path(__file__).parent / "templates"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
 # ── Template loader ───────────────────────────────────────────────────────────

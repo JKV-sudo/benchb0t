@@ -23,6 +23,7 @@ first-time contributors.
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 import threading
@@ -65,6 +66,19 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_model    ON runs(model);
 CREATE INDEX IF NOT EXISTS idx_runs_level_id ON runs(level_id);
 CREATE INDEX IF NOT EXISTS idx_runs_ts       ON runs(ts);
+
+CREATE TABLE IF NOT EXISTS providers (
+    id        TEXT PRIMARY KEY,
+    label     TEXT NOT NULL DEFAULT '',
+    base_url  TEXT NOT NULL DEFAULT '',
+    model     TEXT NOT NULL DEFAULT '',
+    api_key   TEXT NOT NULL DEFAULT '',
+    source    TEXT NOT NULL DEFAULT '',
+    enabled   INTEGER NOT NULL DEFAULT 1,
+    ts        REAL NOT NULL DEFAULT 0,
+    meta      TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_providers_enabled ON providers(enabled);
 """
 
 # Forward-only column migrations.  Add new entries here when the schema grows.
@@ -230,6 +244,55 @@ class Store:
             # Database integrity or operational failure — must be visible
             logger.error("Failed to store run %s: %s", row.get("id", "?"), exc)
             raise
+
+    # ── Providers ────────────────────────────────────────────────────────────
+
+    def save_providers(self, providers: list[dict[str, Any]]) -> None:
+        """Replace the provider table with the given list."""
+        if not self._conn:
+            return
+        with self._lock:
+            self._conn.execute("DELETE FROM providers")
+            now = time.time()
+            for provider in providers:
+                pid = provider.get("id") or f"p{int(now * 1000)}"
+                self._conn.execute(
+                    """INSERT INTO providers
+                        (id, label, base_url, model, api_key, source, enabled, ts, meta)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        pid,
+                        provider.get("label", "")[:120],
+                        provider.get("base_url", ""),
+                        provider.get("model", ""),
+                        provider.get("api_key", ""),
+                        provider.get("source", ""),
+                        1 if provider.get("enabled", True) else 0,
+                        now,
+                        json.dumps(provider.get("meta", {})),
+                    ),
+                )
+            self._conn.commit()
+
+    def get_providers(self) -> list[dict[str, Any]]:
+        """Return all saved providers, enabled first."""
+        if not self._conn:
+            return []
+        rows = self._query("SELECT * FROM providers ORDER BY enabled DESC, ts DESC")
+        for row in rows:
+            row["enabled"] = bool(row.get("enabled"))
+            try:
+                row["meta"] = json.loads(row.get("meta", "{}"))
+            except json.JSONDecodeError:
+                row["meta"] = {}
+        return rows
+
+    def has_providers(self) -> bool:
+        """True if at least one enabled provider exists."""
+        if not self._conn:
+            return False
+        rows = self._query("SELECT COUNT(*) AS n FROM providers WHERE enabled = 1")
+        return bool(rows and rows[0].get("n", 0))
 
     def _query(self, sql: str, params: tuple = ()) -> list[dict]:
         if not self._conn:

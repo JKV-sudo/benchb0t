@@ -19,7 +19,7 @@ Type categories
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 
 
@@ -240,7 +240,7 @@ class ResultBundle:
 
 
 # Union for any artifact type
-Artifact = PreviewScreenshot | ContainerSnapshot | ResultBundle
+Artifact = Union[PreviewScreenshot, ContainerSnapshot, ResultBundle]
 
 
 
@@ -287,6 +287,8 @@ class RunResult:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to nested dict for storage/transmission."""
+        score = self.score
+        score_dict = score.to_dict() if hasattr(score, "to_dict") else dict(score)
         return {
             "run_id": self.run_id,
             "ts": self.ts,
@@ -299,7 +301,7 @@ class RunResult:
             "base_url": self.base_url,
             "log_path": self.log_path,
             "timed_out": self.timed_out,
-            "score": self.score.to_dict(),
+            "score": score_dict,
             "turns": self.turns,
             "tool_calls_n": self.tool_calls_n,
             "duration_s": self.duration_s,
@@ -461,13 +463,13 @@ class SessionEndEvent:
 
 
 # Union of all event types
-AgentLogEvent = (
-    SessionStartEvent
-    | MessageEvent
-    | MessageDeltaEvent
-    | ToolCallEvent
-    | ToolResultEvent
-    | PreviewReadyEvent
-    | ArtifactEvent
-    | SessionEndEvent
-)
+AgentLogEvent = Union[
+    SessionStartEvent,
+    MessageEvent,
+    MessageDeltaEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    PreviewReadyEvent,
+    ArtifactEvent,
+    SessionEndEvent,
+]

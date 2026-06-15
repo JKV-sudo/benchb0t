@@ -113,6 +113,45 @@ class DashboardState:
             return path
         return self.loaded_config.resolve_path(path)
 
+    def load_providers(self) -> list[dict[str, Any]]:
+        if self.store:
+            return self.store.get_providers()
+        return []
+
+    def save_providers(self, providers: list[dict[str, Any]]) -> None:
+        if self.store:
+            self.store.save_providers(providers)
+        self.save_provider_creds(providers)
+
+    def has_providers(self) -> bool:
+        if self.store:
+            return self.store.has_providers()
+        creds = self.load_creds()
+        return bool(creds.get("providers") or (creds.get("base_url") and creds.get("model")))
+
+    def migrate_legacy_creds(self) -> list[dict[str, Any]]:
+        """Import providers from legacy .benchb0t_creds.json into the store."""
+        providers: list[dict[str, Any]] = []
+        creds = self.load_creds()
+        for provider in creds.get("providers", []):
+            if provider.get("base_url") and provider.get("model"):
+                providers.append(dict(provider, id=f"legacy-{provider['model']}", enabled=True))
+        if not providers and creds.get("base_url") and creds.get("model"):
+            providers.append(
+                {
+                    "id": f"legacy-{creds['model']}",
+                    "label": creds.get("model", ""),
+                    "base_url": creds["base_url"],
+                    "model": creds["model"],
+                    "api_key": creds.get("api_key", ""),
+                    "source": "legacy:creds",
+                    "enabled": True,
+                }
+            )
+        if providers and self.store:
+            self.store.save_providers(providers)
+        return providers
+
     def apply_runtime_config(
         self,
         loaded_config: LoadedFrameworkConfig,
@@ -129,3 +168,5 @@ class DashboardState:
         self.creds_file = self.project_dir / ".benchb0t_creds.json"
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self.store = Store(loaded_config.db_path).init()
+        if not self.has_providers():
+            self.migrate_legacy_creds()

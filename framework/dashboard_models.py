@@ -15,10 +15,13 @@ from pydantic import BaseModel
 class ProviderRequest(BaseModel):
     """Provider credentials for agent API endpoint."""
 
+    id: str = ""
+    label: str = ""
     base_url: str
     model: str
     api_key: str = ""
-    label: str = ""
+    source: str = ""
+    enabled: bool = True
 
 
 class RunRequest(BaseModel):
@@ -60,3 +63,15 @@ class SaveLevelRequest(BaseModel):
 
     filename: str
     content: str
+
+
+class TestProviderRequest(BaseModel):
+    """Request to test one or more endpoint URLs."""
+
+    urls: list[str] = []
+
+
+class SaveProvidersRequest(BaseModel):
+    """Request to replace the stored provider list."""
+
+    providers: list[ProviderRequest] = []

@@ -664,7 +664,7 @@ def run_level(
                 )
 
         recorder.end(
-            score=score_summary,
+            score=score_summary.to_dict() if hasattr(score_summary, "to_dict") else score_summary,
             timed_out=timed_out,
             preview_linger_seconds=preview_linger_seconds,
             preview_expires_at=preview_expires_at,
@@ -690,7 +690,7 @@ def run_level(
         if not session_ended:
             result_duration_s = round(time.time() - recorder._started, 2)
             recorder.end(
-                score=score_summary,
+                score=score_summary.to_dict() if hasattr(score_summary, "to_dict") else score_summary,
                 timed_out=timed_out,
                 preview_linger_seconds=preview_linger_seconds,
                 preview_expires_at=preview_expires_at,
@@ -738,7 +738,7 @@ def run_level(
         store.record_run(result.to_dict())
 
     _print_result(result.to_dict())
-    return result
+    return result.to_dict()
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -804,9 +804,9 @@ def _normalize_url(url: str) -> str:
 
     Examples
     --------
-    "svslai02:8080"             → "http://svslai02:8080/v1"
-    "http://svslai02:8080"      → "http://svslai02:8080/v1"
-    "http://svslai02:8080/v1"   → "http://svslai02:8080/v1"   (unchanged)
+    "api-server:8080"           → "http://api-server:8080/v1"
+    "http://api-server:8080"    → "http://api-server:8080/v1"
+    "http://api-server:8080/v1" → "http://api-server:8080/v1" (unchanged)
     "https://api.openai.com/v1" → "https://api.openai.com/v1" (unchanged)
     """
     if not url.startswith(("http://", "https://")):

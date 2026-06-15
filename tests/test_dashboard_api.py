@@ -413,6 +413,14 @@ async def test_chat_route_can_configure_dashboard_via_tools(
         def chat(self, messages, tools=None):
             return responses.pop(0)
 
+        def chat_with_stream(self, messages, tools=None, *, on_text_delta=None):
+            response = self.chat(messages, tools)
+            message = response["choices"][0].get("message", {})
+            content = message.get("content") or ""
+            if content and on_text_delta:
+                on_text_delta(content)
+            return response
+
     monkeypatch.setattr("framework.api.AgentAPI", FakeAgentAPI)
 
     async with AsyncClient(
@@ -430,7 +438,7 @@ async def test_chat_route_can_configure_dashboard_via_tools(
         )
 
     assert resp.status_code == 200
-    assert '"_type": "tool"' in resp.text
+    assert '"_type": "tool_result"' in resp.text
     assert '"all_levels": true' in resp.text
     assert '"save_result_bundle": true' in resp.text
     assert 'Configured the dashboard run options.' in resp.text
@@ -488,6 +496,14 @@ async def test_chat_route_can_start_run_via_tool(
 
         def chat(self, messages, tools=None):
             return responses.pop(0)
+
+        def chat_with_stream(self, messages, tools=None, *, on_text_delta=None):
+            response = self.chat(messages, tools)
+            message = response["choices"][0].get("message", {})
+            content = message.get("content") or ""
+            if content and on_text_delta:
+                on_text_delta(content)
+            return response
 
     monkeypatch.setattr("framework.api.AgentAPI", FakeAgentAPI)
     monkeypatch.setattr(dashboard_mod.subprocess, "Popen", lambda *args, **kwargs: Proc())
@@ -579,6 +595,14 @@ async def test_chat_route_can_create_level_via_tool(
         def chat(self, messages, tools=None):
             return responses.pop(0)
 
+        def chat_with_stream(self, messages, tools=None, *, on_text_delta=None):
+            response = self.chat(messages, tools)
+            message = response["choices"][0].get("message", {})
+            content = message.get("content") or ""
+            if content and on_text_delta:
+                on_text_delta(content)
+            return response
+
     monkeypatch.setattr("framework.api.AgentAPI", FakeAgentAPI)
 
     async with AsyncClient(
@@ -660,6 +684,14 @@ async def test_chat_route_validates_builder_level_drafts(
 
         def chat(self, messages, tools=None):
             return responses.pop(0)
+
+        def chat_with_stream(self, messages, tools=None, *, on_text_delta=None):
+            response = self.chat(messages, tools)
+            message = response["choices"][0].get("message", {})
+            content = message.get("content") or ""
+            if content and on_text_delta:
+                on_text_delta(content)
+            return response
 
     monkeypatch.setattr("framework.api.AgentAPI", FakeAgentAPI)
 
