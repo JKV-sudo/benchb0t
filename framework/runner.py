@@ -38,6 +38,11 @@ from typing import Any
 from dotenv import load_dotenv
 
 from framework.api import AgentAPI
+from framework.anomalies import (
+    detect_anomalies,
+    llm_anomaly_summary,
+    write_anomalies_report,
+)
 from framework.artifacts import (
     capture_preview_screenshot as capture_preview_screenshot_artifact,
     run_artifacts_dir,
@@ -55,7 +60,7 @@ from framework.config import (
     load_level_config,
 )
 from framework.container import LevelContainer, ContainerError
-from framework.recorder import Recorder
+from framework.recorder import Recorder, load_agentlog
 from framework.scorer import Scorer
 from framework.store import Store
 from framework.types import RunResult
@@ -498,6 +503,7 @@ def run_level(
     runs_dir = framework_cfg.runs_dir
     compress = cfg.recorder.compress
     scoring_cfg = cfg.scoring.model_dump(mode="python")
+    artifacts_cfg = cfg.artifacts
 
     recorder = Recorder(runs_dir, level_id, harness_name, compress=compress)
 
@@ -520,6 +526,16 @@ def run_level(
     preview_path = level_cfg.get("preview", {}).get("path", "/")
     artifact_dir: Path | None = None
     artifacts: list[dict[str, Any]] = []
+
+    # Resolve effective artifact flags up front so the bundle step after the
+    # try-block stays safe even if the container fails to start. Config
+    # defaults (auto ON) are ORed with explicit CLI flags. Container snapshots
+    # stay opt-in because they commit a Docker image (heavy operation).
+    do_screenshot = artifacts_cfg.auto_screenshot or capture_preview_screenshot
+    do_bundle = artifacts_cfg.auto_bundle or save_result_bundle
+    do_snapshot = save_container_snapshot
+    do_anomalies = artifacts_cfg.anomalies
+    do_llm_judge = artifacts_cfg.llm_judge
 
     try:
         recorder.start(
@@ -627,10 +643,12 @@ def run_level(
         if preview_linger_seconds > 0:
             preview_expires_at = time.time() + preview_linger_seconds
 
-        if capture_preview_screenshot or save_result_bundle or save_container_snapshot:
+        # Resolve effective artifact flags: config defaults (auto ON) ORed with
+        # explicit CLI flags. Container snapshots stay opt-in (heavy operation).
+        if do_screenshot or do_bundle or do_snapshot or do_anomalies:
             artifact_dir = run_artifacts_dir(runs_dir, recorder.run_id)
 
-        if artifact_dir and host_preview_port and capture_preview_screenshot:
+        if artifact_dir and host_preview_port and do_screenshot:
             screenshot = capture_preview_screenshot_artifact(
                 host_port=host_preview_port,
                 preview_path=preview_path,
@@ -646,7 +664,7 @@ def run_level(
                     size_bytes=screenshot.get("size_bytes", 0),
                 )
 
-        if artifact_dir and save_container_snapshot:
+        if artifact_dir and do_snapshot:
             snapshot = save_container_snapshot_artifact(
                 container=container,
                 artifact_dir=artifact_dir,
@@ -662,6 +680,59 @@ def run_level(
                     image_ref=snapshot.get("image_ref", ""),
                     size_bytes=snapshot.get("size_bytes", 0),
                 )
+
+        # ── Anomaly report ────────────────────────────────────────────────────
+        if artifact_dir and do_anomalies:
+            anomaly_events: list[dict[str, Any]] = []
+            try:
+                anomaly_events = load_agentlog(recorder.path)
+            except Exception as exc:  # noqa: BLE001 — best-effort, non-fatal
+                logger.debug("Could not preload events for anomaly report: %s", exc)
+
+            score_dict = (
+                score_summary.to_dict()
+                if hasattr(score_summary, "to_dict")
+                else score_summary
+            )
+            anomaly_report = detect_anomalies(
+                tool_calls=recorder.tool_calls,
+                events=anomaly_events,
+                timed_out=timed_out,
+                score=score_dict,
+                duration_s=result_duration_s,
+            )
+
+            if do_llm_judge:
+                judge_context = {
+                    "level_id": level_id,
+                    "model": os.getenv("BENCHBOT_MODEL", ""),
+                    "duration_s": result_duration_s,
+                    "turns": recorder.turn_count,
+                    "tool_calls_n": len(recorder.tool_calls),
+                    "timed_out": timed_out,
+                    "score": score_dict,
+                }
+                summary = llm_anomaly_summary(
+                    api,
+                    report=anomaly_report,
+                    result=judge_context,
+                )
+                if summary:
+                    anomaly_report["llm_summary"] = summary
+
+            anomaly_meta = write_anomalies_report(
+                report=anomaly_report,
+                dest_path=artifact_dir / "anomalies.json",
+            )
+            artifacts.append(anomaly_meta)
+            recorder.record_artifact(
+                anomaly_meta["kind"],
+                anomaly_meta["path"],
+                label=anomaly_meta["label"],
+                size_bytes=anomaly_meta.get("size_bytes", 0),
+                severity=anomaly_report["summary"]["severity"],
+                anomaly_count=anomaly_report["summary"]["count"],
+            )
 
         recorder.end(
             score=score_summary.to_dict() if hasattr(score_summary, "to_dict") else score_summary,
@@ -724,7 +795,7 @@ def run_level(
         artifacts=artifacts,
     )
 
-    if artifact_dir and save_result_bundle:
+    if artifact_dir and do_bundle:
         bundle = save_result_bundle_artifact(
             artifact_dir=artifact_dir,
             run_id=recorder.run_id,

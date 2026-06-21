@@ -168,12 +168,26 @@ class RecorderSettings(_StrictModel):
         return value
 
 
+class ArtifactsSettings(_StrictModel):
+    """Controls automatic per-run artifact generation.
+
+    When enabled, every run produces a portable ZIP bundle (result.json +
+    agentlog + screenshot + anomalies report) under runs/artifacts/{run_id}/.
+    """
+
+    auto_screenshot: bool = True
+    auto_bundle: bool = True
+    anomalies: bool = True
+    llm_judge: bool = True
+
+
 class FrameworkConfig(_StrictModel):
     framework: FrameworkSettings = Field(default_factory=FrameworkSettings)
     scoring: ScoringSettings = Field(default_factory=ScoringSettings)
     container: ContainerSettings = Field(default_factory=ContainerSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
     recorder: RecorderSettings = Field(default_factory=RecorderSettings)
+    artifacts: ArtifactsSettings = Field(default_factory=ArtifactsSettings)
 
 
 class LevelModeSettings(_StrictModel):

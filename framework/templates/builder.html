@@ -2,367 +2,319 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-    <title>benchb0t · level builder</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <style>
-    :root {
-      --bg:#0a0800; --panel:#100d00; --panel2:#151000;
-      --b1:#241e00; --b2:#3a3000; --b3:#4a3f00;
-      --y1:#ffd700; --y2:#ffb300; --y3:#ff8c00;
-      --ydk:#7a6000; --text:#ffe87a; --dim:#5a4a10; --dim2:#3a3000;
-      --green:#39ff14; --red:#ff3a3a;
-      --font:'Press Start 2P',monospace;
-    }
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>benchb0t · level builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/shared-pm.css">
+<style>
+:root {
+  --bg:        #070500;
+  --panel:     rgba(16, 13, 0, 0.92);
+  --panel2:    rgba(21, 16, 0, 0.85);
+  --glass:     rgba(255, 215, 0, 0.035);
+  --glass-hi:  rgba(255, 215, 0, 0.08);
+  --b1:        #241e00;
+  --b2:        #3a3000;
+  --b3:        #4a3f00;
+  --y1:        #ffd700;
+  --y2:        #ffb300;
+  --y3:        #ff8c00;
+  --ydk:       #7a6000;
+  --text:      #ffe87a;
+  --dim:       #5a4a10;
+  --dim2:      #3a3000;
+  --green:     #39ff14;
+  --red:       #ff3a3a;
+  --cyan:      #00e5ff;
+  --violet:    #b36cff;
+  --font:      'Press Start 2P', monospace;
+  --radius:    6px;
+  --shadow:    0 8px 32px rgba(0,0,0,.5);
+  --glow:      0 0 18px rgba(255,215,0,.12);
+  --glow-hi:   0 0 28px rgba(255,215,0,.22);
+}
+
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:10px;overflow:hidden}
 body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px)}
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px)}
 
 /* HEADER */
-header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;height:52px;
-  display:flex;align-items:center;gap:14px;box-shadow:0 2px 20px rgba(255,215,0,.15);z-index:50;flex-shrink:0}
-.logo{color:var(--y1);font-size:13px;letter-spacing:3px;text-shadow:0 0 20px var(--y1)}
-.sep{color:var(--b3)}
-.nav-a{font-size:6px;color:var(--dim);letter-spacing:2px;text-decoration:none;
-  border:1px solid var(--dim);padding:3px 8px}
-.nav-a:hover{color:var(--y1);border-color:var(--y1)}
-.hdr-badge{font-size:8px;letter-spacing:2px;color:var(--y2)}
+header{grid-column:1/-1;background:var(--panel);border-bottom:3px solid var(--y1);
+  display:flex;align-items:center;padding:0 18px;gap:14px;height:56px;flex-shrink:0;
+  box-shadow:0 2px 24px rgba(255,215,0,.12);z-index:100}
+.logo-img{height:54px;width:auto;filter:drop-shadow(0 0 8px rgba(255,215,0,.3))}
+.logo{color:var(--y1);font-size:12px;letter-spacing:3px;text-shadow:0 0 16px var(--y1)}
+.hsep{color:var(--b3)}
+.hmeta{font-size:6px;color:var(--dim);letter-spacing:1px}
+.h-link{font-family:var(--font);font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;
+  border:1px solid var(--dim);background:none;padding:4px 9px;cursor:pointer}
+.h-link:hover{color:var(--y1);border-color:var(--y1)}
+header > div{margin-left:auto;display:flex;gap:8px;align-items:center}
 
-/* ROOT SPLIT */
-.root{display:flex;height:calc(100vh - 52px)}
-.left{width:420px;flex-shrink:0;overflow-y:auto;border-right:2px solid var(--b1);
-  display:flex;flex-direction:column;gap:0}
-.left::-webkit-scrollbar{width:3px}
-.left::-webkit-scrollbar-thumb{background:var(--b2)}
-.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* ROOT */
+.root{display:grid;grid-template-columns:260px 1fr 360px;height:calc(100vh - 56px)}
 
-/* SECTIONS */
-.section{border-bottom:2px solid var(--b1)}
-.sec-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;
-  background:var(--panel);user-select:none}
-.sec-hdr:hover{background:var(--panel2)}
-.sec-arr{font-size:8px;color:var(--ydk);transition:transform .15s}
-.sec-hdr.open .sec-arr{transform:rotate(90deg)}
-.sec-title{font-size:6px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
-.sec-body{padding:12px 14px;display:none;flex-direction:column;gap:8px}
-.sec-body.open{display:flex}
+/* SIDEBAR */
+aside{background:linear-gradient(180deg,var(--panel) 0%,rgba(10,8,0,.98) 100%);border-right:2px solid var(--b1);
+  overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+aside::-webkit-scrollbar{width:4px}
+aside::-webkit-scrollbar-thumb{background:var(--b2)}
 
-/* FORM FIELDS */
+.glass-card{background:var(--glass);border:1px solid var(--b2);border-radius:var(--radius);
+  backdrop-filter:blur(8px);box-shadow:var(--shadow), inset 0 1px 0 rgba(255,215,0,.04)}
+.glass-card:hover{border-color:var(--b3);box-shadow:var(--shadow), var(--glow), inset 0 1px 0 rgba(255,215,0,.06)}
+
+.card-hdr{padding:10px 12px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px}
+.card-title{font-size:6px;color:var(--ydk);letter-spacing:2px;text-transform:uppercase}
+.card-title::before{content:'▶';color:var(--y2);margin-right:6px}
+.card-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:6px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
 .field input,.field textarea,.field select{
-  background:var(--bg);border:2px solid var(--b2);color:var(--text);
-  font-family:var(--font);font-size:7px;padding:7px 9px;outline:none;resize:vertical}
-.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--y1)}
-.field select{cursor:pointer}
-.field select option{background:var(--panel)}
+  width:100%;background:rgba(0,0,0,.35);border:2px solid var(--b2);color:var(--text);
+  font-family:var(--font);font-size:7px;padding:8px 10px;outline:none;resize:vertical;border-radius:4px}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--y1);box-shadow:0 0 0 1px rgba(255,215,0,.15), var(--glow)}
+.field select{cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%235a4a10'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;padding-right:22px}
+.field select option{background:#0a0800}
 .field textarea{min-height:72px;line-height:1.7;font-family:monospace;font-size:9px}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.hint{font-size:5px;color:var(--dim2);letter-spacing:1px;margin-top:2px}
+.hint{font-size:5px;color:var(--dim);letter-spacing:1px;margin-top:2px}
 
-/* pkg strip — show all three side by side */
-.pkg-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0}
+.btn{font-family:var(--font);font-size:6px;letter-spacing:2px;text-transform:uppercase;padding:8px 10px;
+  cursor:pointer;border:2px solid var(--b2);background:transparent;color:var(--dim);border-radius:4px;
+  transition:border-color .15s,color .15s,background .15s,box-shadow .15s}
+.btn:hover{border-color:var(--y1);color:var(--y1);box-shadow:var(--glow)}
+.btn.primary{background:var(--y1);color:#000;border-color:var(--y1);box-shadow:0 4px 0 var(--ydk), var(--glow)}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.primary:active{transform:translateY(2px);box-shadow:0 2px 0 var(--ydk), var(--glow)}
+.btn.small{padding:6px 8px;font-size:5px}
 
-/* preset row — select + optional custom input */
-.preset-row{display:flex;flex-direction:column;gap:4px}
-.preset-row select,.preset-row input{width:100%;box-sizing:border-box}
+/* MAIN WORKSPACE */
+main{overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;background:radial-gradient(ellipse at top,rgba(255,215,0,.02) 0%,transparent 60%)}
+main::-webkit-scrollbar{width:5px}
+main::-webkit-scrollbar-thumb{background:var(--b2)}
 
-/* combobox hint */
-.field input[list]{padding-right:22px}
-
-/* DIFFICULTY STARS */
-.diff-row{display:flex;gap:6px;align-items:center}
-.diff-star{font-size:16px;color:var(--b3);cursor:pointer;transition:color .1s;user-select:none}
-.diff-star.on{color:var(--y1);text-shadow:0 0 10px rgba(255,215,0,.5)}
+.level-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:4px}
+.level-title{font-size:14px;color:var(--y1);letter-spacing:2px;text-shadow:var(--glow-hi)}
+.level-sub{font-size:6px;color:var(--dim);letter-spacing:1px;margin-top:6px}
+.diff-row{display:flex;gap:5px}
+.diff-star{font-size:18px;color:var(--b2);cursor:pointer;transition:color .12s,filter .12s;user-select:none;line-height:1}
+.diff-star.on{color:var(--y1);filter:drop-shadow(0 0 6px rgba(255,215,0,.6))}
 .diff-star:hover{color:var(--y2)}
 
-/* TOOL CHECKBOXES */
-.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.tool-chk{display:flex;align-items:center;gap:7px;cursor:pointer;
-  border:2px solid var(--b2);padding:6px 8px}
-.tool-chk:hover{border-color:var(--b3)}
-.tool-chk.checked{border-color:var(--ydk)}
-.tool-chk input{accent-color:var(--y1);width:12px;height:12px;cursor:pointer}
+/* SECTION CARDS */
+.sec-card{background:var(--glass);border:1px solid var(--b2);border-radius:var(--radius);overflow:hidden;
+  backdrop-filter:blur(6px);box-shadow:var(--shadow), inset 0 1px 0 rgba(255,215,0,.04);transition:border-color .2s,box-shadow .2s}
+.sec-card:hover{border-color:var(--b3);box-shadow:var(--shadow), var(--glow), inset 0 1px 0 rgba(255,215,0,.06)}
+.sec-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:rgba(255,215,0,.02);user-select:none}
+.sec-hdr:hover{background:rgba(255,215,0,.04)}
+.sec-icon{font-size:10px;filter:drop-shadow(0 0 4px rgba(255,215,0,.3))}
+.sec-title{font-size:7px;color:var(--text);letter-spacing:2px;text-transform:uppercase;flex:1}
+.sec-arr{font-size:8px;color:var(--ydk);transition:transform .2s}
+.sec-hdr.open .sec-arr{transform:rotate(90deg)}
+.sec-body{padding:14px;display:none;flex-direction:column;gap:12px}
+.sec-body.open{display:flex}
+.sec-badge{font-size:5px;color:var(--dim);letter-spacing:1px;padding:2px 6px;border:1px solid var(--b2);border-radius:3px}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* TOOLS */
+.tool-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tool-chk{display:flex;align-items:center;gap:8px;cursor:pointer;border:2px solid var(--b2);padding:8px;
+  border-radius:4px;background:rgba(0,0,0,.2);transition:border-color .15s,background .15s}
+.tool-chk:hover{border-color:var(--b3);background:rgba(255,215,0,.03)}
+.tool-chk.checked{border-color:var(--ydk);background:rgba(255,215,0,.06);box-shadow:var(--glow)}
+.tool-chk input{accent-color:var(--y1);width:13px;height:13px;cursor:pointer}
 .tool-chk span{font-size:6px;color:var(--dim);letter-spacing:1px;font-family:monospace}
 .tool-chk.checked span{color:var(--y2)}
 
 /* CRITERIA */
-.criteria-list{display:flex;flex-direction:column;gap:8px}
-.crit-card{border:2px solid var(--b2);background:var(--panel2)}
-.crit-hdr{display:flex;align-items:center;justify-content:space-between;
-  padding:6px 9px;border-bottom:1px solid var(--b1);cursor:pointer}
-.crit-hdr:hover{background:var(--panel)}
-.crit-label{font-size:6px;color:var(--dim);letter-spacing:1px}
-.crit-del{font-size:9px;color:var(--red);cursor:pointer;padding:0 4px}
-.crit-del:hover{color:#ff7a7a}
-.crit-body{padding:9px;display:flex;flex-direction:column;gap:7px}
+.criteria-list{display:flex;flex-direction:column;gap:10px}
+.crit-card{background:rgba(0,0,0,.25);border:1px solid var(--b2);border-left:3px solid var(--y2);border-radius:var(--radius);
+  overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.crit-card:hover{border-color:var(--b3);box-shadow:var(--glow)}
+.crit-hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+  background:rgba(255,215,0,.02);cursor:pointer}
+.crit-hdr:hover{background:rgba(255,215,0,.04)}
+.crit-label{font-size:6px;color:var(--dim);letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.crit-label::before{content:'◆';color:var(--y2)}
+.crit-del{font-size:10px;color:var(--red);cursor:pointer;padding:2px 6px;border-radius:3px}
+.crit-del:hover{background:rgba(255,58,58,.1)}
+.crit-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.crit-handle{cursor:grab;color:var(--b3);font-size:8px}
+.crit-handle:active{cursor:grabbing}
 
-.btn-add{
-  background:transparent;border:2px solid var(--b2);color:var(--dim);
-  font-family:var(--font);font-size:6px;letter-spacing:2px;padding:8px;
-  cursor:pointer;width:100%;text-align:center;transition:border-color .15s,color .15s}
-.btn-add:hover{border-color:var(--y2);color:var(--y2)}
+/* PREVIEW PANEL */
+.preview-panel{background:var(--panel);border-left:2px solid var(--b1);display:flex;flex-direction:column;overflow:hidden}
+.preview-hdr{padding:12px 14px;background:var(--panel2);border-bottom:2px solid var(--b1);
+  display:flex;align-items:center;justify-content:space-between}
+.preview-title{font-size:6px;color:var(--ydk);letter-spacing:2px;text-transform:uppercase}
+.preview-title::before{content:'▶';color:var(--y2);margin-right:6px}
+.preview-actions{display:flex;gap:6px}
+.preview-actions button{padding:5px 8px;font-size:5px}
+.yaml-out{flex:1;overflow:auto;padding:14px;font-family:monospace;font-size:10px;line-height:1.8;color:var(--text);background:rgba(0,0,0,.45);white-space:pre}
+.yaml-out::-webkit-scrollbar{width:4px;height:4px}
+.yaml-out::-webkit-scrollbar-thumb{background:var(--b2)}
+.yc{color:var(--dim)} .yk{color:var(--y1);text-shadow:0 0 6px rgba(255,215,0,.25)} .yv{color:var(--text)}
+.ys{color:var(--y2)} .yn{color:var(--green)} .yd{color:var(--dim)}
 
-/* LOAD BAR */
-.load-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;
-  background:var(--panel2);border-bottom:2px solid var(--b1);flex-shrink:0}
-.load-bar select{flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
-  font-family:var(--font);font-size:7px;padding:6px 8px;outline:none;cursor:pointer}
-.load-bar select:focus{border-color:var(--y1)}
-.load-bar select option{background:var(--panel)}
-.btn-load{padding:6px 12px;font-family:var(--font);font-size:6px;letter-spacing:2px;
-  background:transparent;color:var(--y2);border:2px solid var(--y2);cursor:pointer;white-space:nowrap}
-.btn-load:hover{background:rgba(255,179,0,.08)}
-.tpl-lbl{font-size:5px;color:var(--dim);letter-spacing:2px;white-space:nowrap}
+/* STATUS BAR */
+.status-bar{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel2);border-top:2px solid var(--b1);flex-shrink:0}
+.status-pill{font-size:5px;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border:1px solid var(--b2);color:var(--dim);border-radius:3px}
+.status-pill.ok{border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,.1)}
+.status-pill.warn{border-color:var(--y2);color:var(--y2)}
+.status-pill.error{border-color:var(--red);color:var(--red)}
+.save-msg{font-size:6px;color:var(--green);letter-spacing:1px;margin-left:auto;display:none}
 
-/* ACTION BUTTONS */
-.actions{padding:14px;display:flex;gap:8px;border-top:2px solid var(--b1);background:var(--panel);flex-shrink:0}
-.actions{flex-wrap:wrap;align-items:center}
-.btn-save{
-  flex:1;padding:11px;font-family:var(--font);font-size:8px;letter-spacing:3px;
-  background:var(--y1);color:#000;border:none;cursor:pointer;
-  box-shadow:0 4px 0 var(--ydk);transition:transform .08s,box-shadow .08s}
-.btn-save:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ydk)}
-.btn-validate{
-  padding:11px 14px;font-family:var(--font);font-size:7px;letter-spacing:2px;
-  background:transparent;color:var(--green);border:2px solid var(--green);cursor:pointer}
-.btn-validate:hover{background:rgba(57,255,20,.08)}
-.btn-validate:disabled{color:var(--dim);border-color:var(--b2);background:transparent;cursor:not-allowed}
-.btn-copy{
-  padding:11px 14px;font-family:var(--font);font-size:7px;letter-spacing:2px;
-  background:transparent;color:var(--y2);border:2px solid var(--y2);cursor:pointer}
-.btn-copy:hover{background:rgba(255,179,0,.08)}
-.save-msg{font-size:6px;color:var(--green);letter-spacing:1px;align-self:center;display:none}
-.lint-panel{
-  display:none;padding:10px 14px 14px;border-top:1px solid var(--b1);
-  background:var(--panel2);flex-direction:column;gap:8px
-}
-.lint-status{
-  font-size:6px;letter-spacing:2px;padding:8px 9px;border:2px solid var(--b2);
-  color:var(--dim)
-}
+/* AI CHAT */
+.ai-toggle{position:fixed;bottom:22px;right:22px;z-index:200;background:var(--y1);color:#000;border:none;
+  font-family:var(--font);font-size:7px;letter-spacing:2px;padding:12px 16px;cursor:pointer;border-radius:4px;
+  box-shadow:0 0 24px rgba(255,215,0,.45);transition:transform .1s,box-shadow .2s}
+.ai-toggle:hover{transform:translateY(-2px);box-shadow:0 4px 28px rgba(255,215,0,.55)}
+.ai-toggle.active{background:var(--b1);color:var(--y1);border:2px solid var(--y1)}
+.ai-panel{position:fixed;bottom:82px;right:22px;z-index:201;width:380px;max-height:60vh;background:var(--panel);
+  border:2px solid var(--y1);border-radius:var(--radius);display:none;flex-direction:column;
+  box-shadow:var(--shadow), var(--glow-hi);backdrop-filter:blur(10px);overflow:hidden}
+.ai-panel.open{display:flex}
+.ai-hdr{background:var(--b1);border-bottom:2px solid var(--y1);padding:10px 12px;display:flex;align-items:center;gap:8px}
+.ai-title{font-size:7px;color:var(--y1);letter-spacing:3px;flex:1}
+.ai-close{background:none;border:1px solid var(--b3);color:var(--dim);font-family:var(--font);font-size:8px;cursor:pointer;padding:2px 7px}
+.ai-close:hover{border-color:var(--red);color:var(--red)}
+.ai-ctx{padding:5px 12px;font-size:5px;color:var(--ydk);border-bottom:1px solid var(--b1);background:rgba(255,215,0,.02)}
+.ai-msgs{overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:140px;max-height:320px}
+.ai-msgs::-webkit-scrollbar{width:3px}
+.ai-msgs::-webkit-scrollbar-thumb{background:var(--b2)}
+.ai-msg{display:flex;flex-direction:column;gap:3px}
+.ai-role{font-size:5px;letter-spacing:2px;text-transform:uppercase}
+.ai-role.user{color:var(--ydk)} .ai-role.assistant{color:var(--y1)}
+.ai-body{font-size:7px;line-height:1.8;color:var(--text);white-space:pre-wrap;word-break:break-word;padding:6px 9px;
+  background:rgba(0,0,0,.25);border-left:2px solid var(--y1);border-radius:0 4px 4px 0}
+.ai-msg.user .ai-body{border-left-color:var(--ydk)}
+.ai-msg.error .ai-body{color:var(--red)}
+.ai-input-wrap{padding:10px;border-top:2px solid var(--b1);display:flex;gap:8px;align-items:flex-end;background:var(--panel2)}
+.ai-textarea{flex:1;background:rgba(0,0,0,.35);border:2px solid var(--b2);color:var(--text);font-family:var(--font);
+  font-size:7px;padding:8px;resize:none;outline:none;line-height:1.7;min-height:44px;border-radius:4px}
+.ai-textarea:focus{border-color:var(--y1)}
+.ai-send{background:var(--y1);color:#000;border:none;font-family:var(--font);font-size:6px;padding:9px 12px;cursor:pointer;border-radius:4px}
+.ai-send:hover{background:var(--y2)}
+.ai-send:disabled{background:var(--b2);color:var(--dim);cursor:not-allowed}
+.ai-cursor{display:inline-block;width:7px;height:10px;background:var(--y1);vertical-align:text-bottom;margin-left:2px;animation:aiblink .7s step-end infinite}
+@keyframes aiblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.ai-patch-wrap{margin-top:6px;padding:8px;border:1px solid var(--y2);background:rgba(255,215,0,.05);border-radius:4px}
+.ai-patch-info{font-size:5px;color:var(--ydk);letter-spacing:1px;margin-bottom:6px}
+.ai-patch-btn{font-family:var(--font);font-size:6px;letter-spacing:2px;cursor:pointer;background:var(--y1);color:#000;border:none;padding:8px;width:100%;border-radius:4px}
+.ai-patch-btn:hover{background:var(--y2)}
+.ai-patch-btn.applied{background:var(--green);color:#000}
+
+/* LINT PANEL */
+.lint-panel{padding:12px 14px;border-top:1px solid var(--b1);background:rgba(0,0,0,.25);display:none;flex-direction:column;gap:10px}
+.lint-status{font-size:6px;letter-spacing:2px;padding:9px 11px;border:2px solid var(--b2);color:var(--dim);border-radius:4px}
 .lint-status.ok{border-color:var(--green);color:var(--green)}
 .lint-status.warn{border-color:var(--y2);color:var(--y2)}
 .lint-status.error{border-color:var(--red);color:var(--red)}
 .lint-block{display:flex;flex-direction:column;gap:5px}
 .lint-label{font-size:5px;letter-spacing:2px}
-.lint-label.error{color:var(--red)}
-.lint-label.warn{color:var(--y2)}
+.lint-label.error{color:var(--red)} .lint-label.warn{color:var(--y2)}
 .lint-list{display:flex;flex-direction:column;gap:5px;list-style:none}
-.lint-list li{
-  font-size:6px;line-height:1.8;padding:7px 8px;border-left:2px solid var(--b2);
-  background:rgba(0,0,0,.12)
-}
-.lint-list li.error{border-color:var(--red);color:#ffb0b0}
-.lint-list li.warn{border-color:var(--y2);color:var(--text)}
+.lint-list li{font-size:6px;line-height:1.8;padding:7px 8px;border-left:2px solid var(--b2);background:rgba(0,0,0,.2);border-radius:0 4px 4px 0}
+.lint-list li.error{border-color:var(--red);color:#ffb0b0} .lint-list li.warn{border-color:var(--y2);color:var(--text)}
 
-/* YAML PREVIEW */
-.preview-hdr{background:var(--panel);border-bottom:2px solid var(--b1);
-  padding:8px 14px;font-size:6px;color:var(--dim);letter-spacing:3px;flex-shrink:0}
-.yaml-out{flex:1;overflow:auto;padding:14px;font-family:monospace;font-size:10px;
-  line-height:1.8;color:var(--text);background:var(--bg)}
-.yaml-out::-webkit-scrollbar{width:3px}
-.yaml-out::-webkit-scrollbar-thumb{background:var(--b2)}
-/* syntax highlight classes */
-.yc{color:var(--dim)}    /* comment */
-.yk{color:var(--y1)}     /* key */
-.yv{color:var(--text)}   /* value */
-.ys{color:var(--y2)}     /* string value */
-.yn{color:var(--green)}  /* number */
-.yd{color:var(--dim)}    /* dashes/punct */
+/* RESPONSIVE */
+@media (max-width:1200px){.root{grid-template-columns:220px 1fr 300px}}
+@media (max-width:1000px){.root{grid-template-columns:1fr}.preview-panel{display:none}}
 
-/* ── FLOATING CHAT (Builder AI) ─────────────────────────────────────────────── */
-.chat-fab {
-  position:fixed;bottom:24px;right:24px;z-index:200;
-  background:var(--y1);color:#000;border:none;
-  font-family:var(--font);font-size:7px;letter-spacing:2px;
-  padding:11px 14px;cursor:pointer;
-  box-shadow:0 0 20px rgba(255,215,0,.4);
-}
-.chat-fab:hover{background:var(--y2)}
-.chat-fab.active{background:var(--b1);color:var(--y1);border:2px solid var(--y1)}
-.chat-float {
-  position:fixed;bottom:72px;right:24px;z-index:201;
-  width:360px;background:var(--panel);border:2px solid var(--y1);
-  display:none;flex-direction:column;
-  box-shadow:0 0 30px rgba(255,215,0,.15);
-}
-.chat-float.open{display:flex}
-.cf-hdr {
-  background:var(--b1);border-bottom:2px solid var(--y1);
-  padding:9px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;
-}
-.cf-title{font-size:7px;color:var(--y1);letter-spacing:3px}
-.cf-model{font-size:5px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cf-close {
-  background:none;border:1px solid var(--b3);color:var(--dim);
-  font-family:var(--font);font-size:8px;cursor:pointer;padding:1px 6px;line-height:1;
-}
-.cf-close:hover{border-color:var(--red);color:var(--red)}
-.cf-ctx {
-  padding:4px 10px;font-size:5px;color:var(--ydk);
-  border-bottom:1px solid var(--b1);flex-shrink:0;letter-spacing:1px;background:var(--panel2);
-}
-.cf-msgs {
-  overflow-y:auto;padding:10px;
-  display:flex;flex-direction:column;gap:8px;min-height:120px;max-height:300px;
-}
-.cf-msgs::-webkit-scrollbar{width:3px}
-.cf-msgs::-webkit-scrollbar-thumb{background:var(--b2)}
-.cf-msg{display:flex;flex-direction:column;gap:3px}
-.cf-role{font-size:5px;letter-spacing:2px;text-transform:uppercase}
-.cf-role.user{color:var(--ydk)}
-.cf-role.assistant{color:var(--y1)}
-.cf-body {
-  font-size:7px;line-height:1.8;color:var(--text);
-  white-space:pre-wrap;word-break:break-word;padding:5px 8px;
-}
-.cf-msg.user .cf-body{background:var(--panel2);border-left:2px solid var(--ydk)}
-.cf-msg.assistant .cf-body{border-left:2px solid var(--y1)}
-.cf-msg.error .cf-body{color:var(--red)}
-.cf-cursor {
-  display:inline-block;width:7px;height:10px;background:var(--y1);
-  vertical-align:text-bottom;margin-left:2px;
-  animation:cfblink .7s step-end infinite;
-}
-@keyframes cfblink{0%,49%{opacity:1}50%,100%{opacity:0}}
-.cf-patch-wrap {
-  margin-top:6px;padding:6px 8px;
-  border:1px solid var(--y2);background:rgba(255,215,0,.05);
-}
-.cf-patch-info{font-size:5px;color:var(--ydk);letter-spacing:1px;margin-bottom:5px}
-.cf-patch-btn {
-  font-family:var(--font);font-size:6px;letter-spacing:2px;cursor:pointer;
-  background:var(--y1);color:#000;border:none;padding:6px 10px;
-  display:block;width:100%;
-}
-.cf-patch-btn:hover{background:var(--y2)}
-.cf-patch-btn.applied{background:var(--green);color:#000}
-.cf-input-wrap {
-  padding:8px;border-top:2px solid var(--b1);flex-shrink:0;
-  display:flex;gap:6px;align-items:flex-end;
-}
-.cf-textarea {
-  flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
-  font-family:var(--font);font-size:7px;padding:6px 8px;
-  resize:none;outline:none;line-height:1.7;min-height:44px;
-}
-.cf-textarea:focus{border-color:var(--y1)}
-.cf-send {
-  background:var(--y1);color:#000;border:none;
-  font-family:var(--font);font-size:6px;padding:8px 10px;cursor:pointer;flex-shrink:0;
-}
-.cf-send:hover{background:var(--y2)}
-.cf-send:disabled{background:var(--b2);color:var(--dim);cursor:not-allowed}
-
-/* ── Builder AI provider selector ── */
-.cf-provider-bar {
-  display:flex;align-items:center;gap:6px;
-  padding:6px 10px;border-bottom:1px solid var(--b1);
-  background:var(--panel2);flex-shrink:0;
-}
-.cf-provider-label{font-size:5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
-.cf-provider-select{
-  flex:1;background:var(--bg);border:2px solid var(--b2);color:var(--text);
-  font-family:var(--font);font-size:6px;padding:4px 5px;outline:none;cursor:pointer;
-}
-.cf-provider-select:focus{border-color:var(--y1)}
-.cf-provider-select option{background:var(--panel)}
-.cf-provider-btn{
-  background:none;border:1px solid var(--b3);color:var(--dim);
-  font-family:var(--font);font-size:6px;cursor:pointer;padding:3px 6px;
-}
-.cf-provider-btn:hover{border-color:var(--y1);color:var(--y1)}
-.cf-provider-panel{
-  display:none;flex-direction:column;gap:6px;
-  padding:8px 10px;border-bottom:1px solid var(--b1);
-  background:var(--panel2);flex-shrink:0;
-}
-.cf-provider-panel.open{display:flex}
-.cf-provider-panel .field{display:flex;flex-direction:column;gap:3px}
-.cf-provider-panel .field label{font-size:5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
-.cf-provider-panel .field input{
-  background:var(--bg);border:2px solid var(--b2);color:var(--text);
-  font-family:var(--font);font-size:6px;padding:5px 6px;outline:none;
-}
-.cf-provider-panel .field input:focus{border-color:var(--y1)}
-.cf-provider-save{
-  background:var(--y1);color:#000;border:none;
-  font-family:var(--font);font-size:6px;letter-spacing:1px;
-  padding:6px;cursor:pointer;text-align:center;
-}
-.cf-provider-save:hover{background:var(--y2)}
-.cf-provider-status{font-size:5px;color:var(--dim);min-height:10px}
+/* dirty dot */
+.dirty-dot{width:6px;height:6px;border-radius:50%;background:var(--y1);box-shadow:0 0 8px var(--y1);display:none}
+.dirty .dirty-dot{display:inline-block}
 </style>
 </head>
 <body>
+
 <header>
-  <span class="logo">benchb0t</span>
-  <span class="sep">│</span>
-  <span class="hdr-badge">LEVEL BUILDER</span>
-  <div style="margin-left:auto;display:flex;gap:10px">
-    <a class="nav-a" href="/">← LIVE</a>
-    <a class="nav-a" href="/analytics">ANALYTICS</a>
-    <a class="nav-a" href="/history">HISTORY</a>
+  <img src="/static/benchb0t-logo.png" alt="benchb0t" class="logo-img">
+  <span class="hsep">│</span>
+  <span class="hmeta">LEVEL BUILDER v2</span>
+  <div>
+    <button class="h-link" onclick="openSettings()">⚙ SETTINGS</button>
+    <a class="h-link" href="/">← DASHBOARD</a>
+    <a class="h-link" href="/analytics">ANALYTICS ↗</a>
+    <a class="h-link" href="/history">HISTORY ↗</a>
   </div>
 </header>
 
 <div class="root">
 
-<!-- ── LEFT: FORM ── -->
-<div class="left">
-
-  <!-- LOAD / TEMPLATE BAR -->
-  <div class="load-bar">
-    <span class="tpl-lbl">LOAD</span>
-    <select id="load-sel">
-      <option value="">— existing level —</option>
-    </select>
-    <button class="btn-load" onclick="loadLevel()">EDIT ↓</button>
-    <span class="tpl-lbl" style="margin-left:4px">TPL</span>
-    <select id="tpl-sel" onchange="applyTemplate(this.value)">
-      <option value="">— template —</option>
-      <option value="webapp">🌐 Webapp</option>
-      <option value="file">📄 File task</option>
-      <option value="api">🔌 API fetch</option>
-      <option value="data">📊 Data pipeline</option>
-    </select>
+<!-- LEFT SIDEBAR -->
+<aside>
+  <div class="glass-card">
+    <div class="card-hdr"><span class="card-title">Load Level</span></div>
+    <div class="card-body">
+      <div class="field">
+        <label>Existing level</label>
+        <select id="load-sel"><option value="">— select —</option></select>
+      </div>
+      <button class="btn primary small" style="width:100%" onclick="loadLevel()">EDIT SELECTED</button>
+      <hr style="border:0;border-top:1px solid var(--b1);margin:4px 0">
+      <div class="field">
+        <label>Template</label>
+        <select id="tpl-sel" onchange="applyTemplate(this.value)">
+          <option value="">— choose template —</option>
+          <option value="webapp">🌐 Webapp</option>
+          <option value="file">📄 File task</option>
+          <option value="api">🔌 API fetch</option>
+          <option value="data">📊 Data pipeline</option>
+        </select>
+      </div>
+    </div>
   </div>
 
-  <!-- datalists for comboboxes -->
-  <datalist id="dl-images">
-    <option value="python:3.11-slim">
-    <option value="python:3.12-slim">
-    <option value="python:3.10-slim">
-    <option value="node:20-slim">
-    <option value="node:18-slim">
-    <option value="node:22-slim">
-    <option value="ubuntu:22.04">
-    <option value="ubuntu:24.04">
-    <option value="debian:bookworm-slim">
-    <option value="alpine:3.19">
-    <option value="golang:1.22-alpine">
-    <option value="rust:1.77-slim">
-    <option value="php:8.3-cli">
-    <option value="ruby:3.3-slim">
-    <option value="openjdk:21-slim">
-    <option value="postgres:16-alpine">
-    <option value="redis:7-alpine">
-  </datalist>
-  <datalist id="dl-workdir">
-    <option value="/workspace">
-    <option value="/app">
-    <option value="/home/user">
-    <option value="/tmp/work">
-    <option value="/root">
-  </datalist>
+  <div class="glass-card">
+    <div class="card-hdr"><span class="card-title">Quick Stats</span></div>
+    <div class="card-body" style="gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:6px"><span style="color:var(--dim)">Difficulty</span><span id="sb-diff">★☆☆☆☆</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:6px"><span style="color:var(--dim)">Tools</span><span id="sb-tools">3</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:6px"><span style="color:var(--dim)">Criteria</span><span id="sb-crits">1</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:6px"><span style="color:var(--dim)">Status</span><span id="sb-status" style="color:var(--dim)">draft</span></div>
+    </div>
+  </div>
 
-  <!-- LEVEL INFO -->
-  <div class="section">
+  <div class="glass-card" style="margin-top:auto">
+    <div class="card-hdr"><span class="card-title">Actions</span></div>
+    <div class="card-body">
+      <button class="btn primary small" style="width:100%" onclick="saveLevel()">💾 SAVE LEVEL</button>
+      <button class="btn small" style="width:100%" onclick="validateLevel()">🔎 VALIDATE</button>
+      <button class="btn small" style="width:100%" onclick="copyYaml()">📋 COPY YAML</button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN WORKSPACE -->
+<main>
+  <div class="level-header">
+    <div>
+      <div class="level-title" id="level-title">New Level</div>
+      <div class="level-sub" id="level-sub">Build a benchmark task for AI agents</div>
+    </div>
+    <div class="diff-row" id="diff-stars">
+      <span class="diff-star on" onclick="setDiff(1)">★</span>
+      <span class="diff-star off" onclick="setDiff(2)">★</span>
+      <span class="diff-star off" onclick="setDiff(3)">★</span>
+      <span class="diff-star off" onclick="setDiff(4)">★</span>
+      <span class="diff-star off" onclick="setDiff(5)">★</span>
+    </div>
+  </div>
+
+  <!-- META -->
+  <div class="sec-card">
     <div class="sec-hdr open" onclick="toggleSec(this)">
+      <span class="sec-icon">🧬</span>
+      <span class="sec-title">Level Meta</span>
+      <span class="dirty-dot"></span>
       <span class="sec-arr">▶</span>
-      <span class="sec-title">Level info</span>
     </div>
     <div class="sec-body open">
       <div class="field">
@@ -394,65 +346,50 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
           <input id="f-tags" type="text" placeholder="beginner, read, write" oninput="sync()">
         </div>
       </div>
-      <div class="field">
-        <label>Difficulty</label>
-        <div class="diff-row" id="diff-stars">
-          <span class="diff-star on"  onclick="setDiff(1)">★</span>
-          <span class="diff-star off" onclick="setDiff(2)">★</span>
-          <span class="diff-star off" onclick="setDiff(3)">★</span>
-          <span class="diff-star off" onclick="setDiff(4)">★</span>
-          <span class="diff-star off" onclick="setDiff(5)">★</span>
-        </div>
-      </div>
     </div>
   </div>
 
   <!-- CONTAINER -->
-  <div class="section">
+  <div class="sec-card">
     <div class="sec-hdr open" onclick="toggleSec(this)">
-      <span class="sec-arr">▶</span>
+      <span class="sec-icon">📦</span>
       <span class="sec-title">Container</span>
+      <span class="dirty-dot"></span>
+      <span class="sec-arr">▶</span>
     </div>
     <div class="sec-body open">
       <div class="field-row">
         <div class="field">
           <label>Image</label>
-          <input id="f-image" type="text" list="dl-images" value="python:3.11-slim"
-                 placeholder="python:3.11-slim" oninput="onImageChange(this.value)" autocomplete="off">
-          <span class="hint">type or pick ↓</span>
+          <input id="f-image" type="text" list="dl-images" value="python:3.11-slim" placeholder="python:3.11-slim" oninput="onImageChange(this.value)" autocomplete="off">
+          <span class="hint">type or pick from suggestions</span>
         </div>
         <div class="field">
           <label>Working dir</label>
-          <input id="f-workdir" type="text" list="dl-workdir" value="/workspace"
-                 placeholder="/workspace" oninput="sync()" autocomplete="off">
+          <input id="f-workdir" type="text" list="dl-workdir" value="/workspace" placeholder="/workspace" oninput="sync()" autocomplete="off">
         </div>
       </div>
-
-      <!-- Package strip — only show sections relevant to the image -->
-      <div class="pkg-strip">
-        <div class="field pkg-apt" id="pkg-apt-wrap">
+      <div class="field-row3">
+        <div class="field" id="pkg-apt-wrap">
           <label>APT <span class="hint">space-sep</span></label>
           <input id="f-apt" type="text" placeholder="curl jq git" oninput="sync()">
         </div>
-        <div class="field pkg-pip" id="pkg-pip-wrap">
+        <div class="field" id="pkg-pip-wrap">
           <label>PIP <span class="hint">space-sep</span></label>
           <input id="f-pip" type="text" placeholder="requests pandas" oninput="sync()">
         </div>
-        <div class="field pkg-npm" id="pkg-npm-wrap">
+        <div class="field" id="pkg-npm-wrap">
           <label>NPM <span class="hint">space-sep</span></label>
           <input id="f-npm" type="text" placeholder="axios express" oninput="sync()">
         </div>
       </div>
-
       <div class="field">
         <label>Setup script <span class="hint">runs before agent starts</span></label>
         <textarea id="f-setup" placeholder="mkdir -p /workspace&#10;printf 'hello' > /workspace/input.txt" oninput="sync()"></textarea>
       </div>
-
-      <!-- Preview port (collapsed by default, shown when image is node / user sets it) -->
       <div class="field-row" id="preview-fields">
         <div class="field">
-          <label>🌐 Preview port</label>
+          <label>Preview port</label>
           <select id="f-port-sel" onchange="onPortPreset(this.value)">
             <option value="">none</option>
             <option value="3000">3000 (Node/Vite)</option>
@@ -476,58 +413,55 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
   </div>
 
   <!-- TASK -->
-  <div class="section">
+  <div class="sec-card">
     <div class="sec-hdr open" onclick="toggleSec(this)">
-      <span class="sec-arr">▶</span>
+      <span class="sec-icon">📝</span>
       <span class="sec-title">Task</span>
+      <span class="dirty-dot"></span>
+      <span class="sec-arr">▶</span>
     </div>
     <div class="sec-body open">
       <div class="field">
         <label>Instruction</label>
-        <textarea id="f-instr" style="min-height:110px"
-          placeholder="Describe exactly what the agent must accomplish…" oninput="sync()"></textarea>
+        <textarea id="f-instr" style="min-height:120px" placeholder="Describe exactly what the agent must accomplish…" oninput="sync()"></textarea>
       </div>
       <div class="field-row">
         <div class="field">
           <label>Max turns</label>
-          <div class="preset-row">
-            <select id="f-turns-sel" onchange="setPreset('f-turns',this.value)">
-              <option value="10">10 — quick</option>
-              <option value="15" selected>15 — normal</option>
-              <option value="20">20 — standard</option>
-              <option value="30">30 — extended</option>
-              <option value="50">50 — deep</option>
-              <option value="custom">custom…</option>
-            </select>
-            <input id="f-turns" type="number" value="15" min="1" max="200"
-                   style="display:none" oninput="sync()">
-          </div>
+          <select id="f-turns-sel" onchange="setPreset('f-turns',this.value)">
+            <option value="10">10 — quick</option>
+            <option value="15" selected>15 — normal</option>
+            <option value="20">20 — standard</option>
+            <option value="30">30 — extended</option>
+            <option value="50">50 — deep</option>
+            <option value="custom">custom…</option>
+          </select>
+          <input id="f-turns" type="number" value="15" min="1" max="200" style="display:none;margin-top:6px" oninput="sync()">
         </div>
         <div class="field">
           <label>Timeout</label>
-          <div class="preset-row">
-            <select id="f-timeout-sel" onchange="setPreset('f-timeout',this.value)">
-              <option value="60">60s — quick</option>
-              <option value="90" selected>90s — normal</option>
-              <option value="120">120s — standard</option>
-              <option value="180">180s — long</option>
-              <option value="300">300s — webapp</option>
-              <option value="600">600s — max</option>
-              <option value="custom">custom…</option>
-            </select>
-            <input id="f-timeout" type="number" value="90" min="10" max="600"
-                   style="display:none" oninput="sync()">
-          </div>
+          <select id="f-timeout-sel" onchange="setPreset('f-timeout',this.value)">
+            <option value="60">60s — quick</option>
+            <option value="90" selected>90s — normal</option>
+            <option value="120">120s — standard</option>
+            <option value="180">180s — long</option>
+            <option value="300">300s — webapp</option>
+            <option value="600">600s — max</option>
+            <option value="custom">custom…</option>
+          </select>
+          <input id="f-timeout" type="number" value="90" min="10" max="600" style="display:none;margin-top:6px" oninput="sync()">
         </div>
       </div>
     </div>
   </div>
 
   <!-- TOOLS -->
-  <div class="section">
+  <div class="sec-card">
     <div class="sec-hdr open" onclick="toggleSec(this)">
-      <span class="sec-arr">▶</span>
+      <span class="sec-icon">🛠️</span>
       <span class="sec-title">Tools</span>
+      <span class="sec-badge" id="tools-badge">3 selected</span>
+      <span class="sec-arr">▶</span>
     </div>
     <div class="sec-body open">
       <div class="tool-grid">
@@ -557,10 +491,12 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
   </div>
 
   <!-- EVALUATION -->
-  <div class="section">
+  <div class="sec-card">
     <div class="sec-hdr open" onclick="toggleSec(this)">
-      <span class="sec-arr">▶</span>
+      <span class="sec-icon">✅</span>
       <span class="sec-title">Evaluation</span>
+      <span class="sec-badge" id="crit-badge">1 criterion</span>
+      <span class="sec-arr">▶</span>
     </div>
     <div class="sec-body open">
       <div class="field">
@@ -573,20 +509,20 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
           <option value="20">20 — webapp</option>
           <option value="custom">custom…</option>
         </select>
-        <input id="f-eff" type="number" value="5" min="1"
-               style="display:none;margin-top:4px" oninput="sync()">
+        <input id="f-eff" type="number" value="5" min="1" style="display:none;margin-top:6px" oninput="sync()">
       </div>
       <div class="criteria-list" id="crit-list"></div>
-      <button class="btn-add" onclick="addCriterion()">+ ADD CRITERION</button>
+      <button class="btn small" style="width:100%" onclick="addCriterion()">+ ADD CRITERION</button>
     </div>
   </div>
 
   <!-- FORCED RETRY -->
-  <div class="section">
+  <div class="sec-card">
     <div class="sec-hdr" onclick="toggleSec(this)">
-      <span class="sec-arr">▶</span>
+      <span class="sec-icon">🔁</span>
       <span class="sec-title">Forced Retry</span>
-      <span style="margin-left:auto;font-size:5px;color:var(--dim);letter-spacing:1px" id="retry-badge"></span>
+      <span class="sec-badge" id="retry-badge"></span>
+      <span class="sec-arr">▶</span>
     </div>
     <div class="sec-body">
       <div class="field">
@@ -596,7 +532,7 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
         </label>
         <div class="hint">if agent fails, runner re-attempts with a point penalty</div>
       </div>
-      <div id="retry-fields" style="display:none;flex-direction:column;gap:8px">
+      <div id="retry-fields" style="display:none;flex-direction:column;gap:10px">
         <div class="field-row3">
           <div class="field">
             <label>Max retries</label>
@@ -616,13 +552,6 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
     </div>
   </div>
 
-  <!-- ACTIONS -->
-  <div class="actions">
-    <button class="btn-copy" onclick="copyYaml()">📋 COPY</button>
-    <button class="btn-validate" id="btn-validate" onclick="validateLevel()">🔎 VALIDATE</button>
-    <button class="btn-save" onclick="saveLevel()">💾 SAVE LEVEL</button>
-    <span class="save-msg" id="save-msg">✔ SAVED</span>
-  </div>
   <div class="lint-panel" id="lint-panel">
     <div class="lint-status" id="lint-status">Run validate to check this level before saving.</div>
     <div class="lint-block" id="lint-errors-wrap" style="display:none">
@@ -634,32 +563,89 @@ header{background:var(--panel);border-bottom:3px solid var(--y1);padding:0 20px;
       <ul class="lint-list" id="lint-warnings"></ul>
     </div>
   </div>
+</main>
 
-</div><!-- /left -->
-
-<!-- ── RIGHT: YAML PREVIEW ── -->
-<div class="right">
-  <div class="preview-hdr">YAML PREVIEW — live</div>
+<!-- YAML PREVIEW -->
+<div class="preview-panel">
+  <div class="preview-hdr">
+    <span class="preview-title">YAML Preview</span>
+    <div class="preview-actions">
+      <button class="btn small" onclick="copyYaml()">COPY</button>
+      <button class="btn small" onclick="saveLevel()">SAVE</button>
+    </div>
+  </div>
   <div class="yaml-out" id="yaml-out"></div>
+  <div class="status-bar">
+    <span class="status-pill" id="status-pill">draft</span>
+    <span style="font-size:5px;color:var(--dim);letter-spacing:1px" id="status-detail">—</span>
+    <span class="save-msg" id="save-msg">✔ SAVED</span>
+  </div>
 </div>
 
-</div><!-- /root -->
+</div>
+
+<!-- AI CHAT -->
+<button class="ai-toggle" id="cf-fab" onclick="toggleCF()">🤖 AI EDIT</button>
+<div class="ai-panel" id="cf-panel">
+  <div class="ai-hdr">
+    <span class="ai-title">BENCHBOT-AI</span>
+    <span class="cf-model" id="cf-model-lbl" style="font-size:5px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</span>
+    <button class="ai-close" onclick="toggleCF()">✕</button>
+  </div>
+  <div id="pm-cf"></div>
+  <div class="ai-ctx">◆ level editor · patch proposals · apply to form</div>
+  <div class="ai-msgs" id="cf-msgs">
+    <div class="ai-msg assistant">
+      <span class="ai-role assistant">BENCHBOT-AI</span>
+      <div class="ai-body">Zeig mir was du baust — ich schlage Patches vor die du direkt auf das Formular anwenden kannst.</div>
+    </div>
+  </div>
+  <div class="ai-input-wrap">
+    <textarea class="ai-textarea" id="cf-input" placeholder="Mach die Kriterien strenger…" rows="2"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendBuilderAI();}"></textarea>
+    <button class="ai-send" id="cf-send-btn" onclick="sendBuilderAI()">▶</button>
+  </div>
+</div>
+
+<datalist id="dl-images">
+  <option value="python:3.11-slim">
+  <option value="python:3.12-slim">
+  <option value="python:3.10-slim">
+  <option value="node:20-slim">
+  <option value="node:18-slim">
+  <option value="node:22-slim">
+  <option value="ubuntu:22.04">
+  <option value="ubuntu:24.04">
+  <option value="debian:bookworm-slim">
+  <option value="alpine:3.19">
+  <option value="golang:1.22-alpine">
+  <option value="rust:1.77-slim">
+  <option value="php:8.3-cli">
+  <option value="ruby:3.3-slim">
+  <option value="openjdk:21-slim">
+  <option value="postgres:16-alpine">
+  <option value="redis:7-alpine">
+</datalist>
+<datalist id="dl-workdir">
+  <option value="/workspace">
+  <option value="/app">
+  <option value="/home/user">
+  <option value="/tmp/work">
+  <option value="/root">
+</datalist>
 
 <script src="/static/shared-utils.js"></script>
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
 const ALL_TOOLS = ['bash','read_file','write_file','http_request','list_dir','run_background','patch_file'];
 let difficulty = 1;
 let tools      = ['bash','read_file','write_file'];
 let critCount  = 0;
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 window.onload = async () => {
   await populateLoadDropdown();
   addCriterion({ id:'output_exists', desc:'output file must exist', check:"test -f /workspace/output.txt", weight:1.0 });
-  // initialise smart field states
   onImageChange(document.getElementById('f-image')?.value || '');
-  onPortPreset(document.getElementById('f-port-sel')?.value || 'none');
+  onPortPreset(document.getElementById('f-port-sel')?.value || '');
   sync();
 };
 
@@ -667,7 +653,7 @@ async function populateLoadDropdown() {
   try {
     const levels = await fetch('/api/levels').then(r => r.json());
     const sel = document.getElementById('load-sel');
-    sel.innerHTML = '<option value="">— existing level —</option>' +
+    sel.innerHTML = '<option value="">— select —</option>' +
       levels.map(l => `<option value="${esc(l.id)}">${esc(l.name)} (${esc(l.id)})</option>`).join('');
   } catch(e) {}
 }
@@ -696,16 +682,10 @@ async function loadLevel() {
     setField('f-port',    d.preview_port || '');
     setField('f-ppath',   d.preview_path || '/');
     setDiff(d.difficulty || 1);
-
-    // tools
     setToolSelection(d.tools || []);
-
-    // criteria — clear and re-add
     document.getElementById('crit-list').innerHTML = '';
     critCount = 0;
     (d.criteria || []).forEach(c => addCriterion(c));
-
-    // forced retry
     const retryOn = !!d.forced_retry?.enabled;
     const cb = document.getElementById('f-retry-on');
     if (cb) { cb.checked = retryOn; onRetryToggle(); }
@@ -714,12 +694,10 @@ async function loadLevel() {
       setField('f-retry-pen', d.forced_retry.penalty_per_retry ?? 10);
       setField('f-retry-thr', d.forced_retry.completion_threshold ?? 0.5);
     }
-
     sync();
   } catch(e) { alert('Failed to load level: ' + e); }
 }
 
-// ── Forced retry toggle ───────────────────────────────────────────────────────
 function onRetryToggle() {
   const on = document.getElementById('f-retry-on').checked;
   const fields = document.getElementById('retry-fields');
@@ -729,14 +707,12 @@ function onRetryToggle() {
   sync();
 }
 
-// ── Section toggle ────────────────────────────────────────────────────────────
 function toggleSec(hdr) {
   hdr.classList.toggle('open');
   const body = hdr.nextElementSibling;
   body.classList.toggle('open');
 }
 
-// ── Difficulty ────────────────────────────────────────────────────────────────
 function setDiff(n) {
   difficulty = n;
   document.querySelectorAll('#diff-stars .diff-star').forEach((s, i) => {
@@ -745,7 +721,6 @@ function setDiff(n) {
   sync();
 }
 
-// ── Tools ─────────────────────────────────────────────────────────────────────
 function syncTool(cb, name) {
   const lbl = document.getElementById('tc-' + name);
   if (cb.checked) { if (!tools.includes(name)) tools.push(name); lbl.classList.add('checked'); }
@@ -775,7 +750,6 @@ function ensureToolEnabled(name) {
   if (lbl) lbl.classList.add('checked');
 }
 
-// ── Name → ID slug ────────────────────────────────────────────────────────────
 function onNameInput() {
   const name = val('f-name');
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -783,16 +757,16 @@ function onNameInput() {
   sync();
 }
 
-// ── Criteria ──────────────────────────────────────────────────────────────────
 function addCriterion(defaults) {
   const idx = ++critCount;
   const d = defaults || {};
   const card = document.createElement('div');
   card.className = 'crit-card';
   card.id = 'crit-' + idx;
+  card.draggable = true;
   card.innerHTML = `
     <div class="crit-hdr" onclick="toggleCrit(${idx})">
-      <span class="crit-label">CRITERION #${idx}</span>
+      <span class="crit-label"><span class="crit-handle" onmousedown="event.stopPropagation()">≡</span> CRITERION #${idx}</span>
       <span class="crit-del" onclick="event.stopPropagation();deleteCrit(${idx})">✕</span>
     </div>
     <div class="crit-body" id="crit-body-${idx}">
@@ -842,7 +816,6 @@ function getCriteria() {
   return items;
 }
 
-// ── YAML builder ──────────────────────────────────────────────────────────────
 function buildYaml() {
   const id      = val('f-id')      || 'l-my-level';
   const name    = val('f-name')    || 'My Level';
@@ -873,9 +846,6 @@ function buildYaml() {
   const yNpm   = npm.length   ? '[' + npm.join(', ')   + ']' : '[]';
   const yTools = tools.map(t => '  - ' + t).join('\n');
 
-  // Indent multiline strings for YAML block scalar
-  const indentBlock = (s, indent) =>
-    s.split('\n').map((l, i) => (i === 0 ? '' : ' '.repeat(indent)) + l).join('\n');
   const setupBlock = setup
     ? '|\n    ' + setup.split('\n').join('\n    ')
     : '""';
@@ -924,7 +894,6 @@ function buildYaml() {
     '',
   ];
 
-  // preview block — only emit when a port is specified
   if (port) {
     parts.push(
       'preview:',
@@ -951,7 +920,6 @@ function buildYaml() {
     critYaml || '    []',
   );
 
-  // forced_retry block — only emit when enabled
   if (retryOn) {
     parts.push(
       '',
@@ -966,31 +934,39 @@ function buildYaml() {
   return parts.join('\n');
 }
 
-// ── Live preview with syntax highlighting ─────────────────────────────────────
 function sync() {
   const yaml  = buildYaml();
   const lines = yaml.split('\n');
-  // esc() now from shared-utils.js for consistency
   const html  = lines.map(line => {
     if (/^\s*#/.test(line))   return `<span class="yc">${esc(line)}</span>`;
     const m = line.match(/^(\s*)([\w_]+)(:)(.*)/);
     if (m) {
-      const val = m[4];
+      const v = m[4];
       let vspan;
-      if (/^\s*\|/.test(val))       vspan = `<span class="yd">${esc(val)}</span>`;
-      else if (/^\s*[\d.]+$/.test(val.trim())) vspan = `<span class="yn">${esc(val)}</span>`;
-      else if (/^\s*"/.test(val))   vspan = `<span class="ys">${esc(val)}</span>`;
-      else if (/^\s*\[/.test(val))  vspan = `<span class="ys">${esc(val)}</span>`;
-      else                          vspan = `<span class="yv">${esc(val)}</span>`;
+      if (/^\s*\|/.test(v))       vspan = `<span class="yd">${esc(v)}</span>`;
+      else if (/^\s*[\d.]+$/.test(v.trim())) vspan = `<span class="yn">${esc(v)}</span>`;
+      else if (/^\s*"/.test(v))   vspan = `<span class="ys">${esc(v)}</span>`;
+      else if (/^\s*\[/.test(v))  vspan = `<span class="ys">${esc(v)}</span>`;
+      else                          vspan = `<span class="yv">${esc(v)}</span>`;
       return `${esc(m[1])}<span class="yk">${esc(m[2])}</span><span class="yd">${esc(m[3])}</span>${vspan}`;
     }
     if (/^\s*-\s/.test(line))  return `<span class="ys">${esc(line)}</span>`;
     return `<span class="yv">${esc(line)}</span>`;
   }).join('\n');
   document.getElementById('yaml-out').innerHTML = html;
+
+  // update header + sidebar stats
+  const name = val('f-name') || 'New Level';
+  document.getElementById('level-title').textContent = name;
+  document.getElementById('level-sub').textContent = (val('f-id') || 'unsaved') + ' · ' + (val('f-cat') || 'general');
+  document.getElementById('sb-diff').textContent = '★'.repeat(difficulty) + '☆'.repeat(5-difficulty);
+  document.getElementById('sb-tools').textContent = tools.length;
+  document.getElementById('sb-crits').textContent = document.querySelectorAll('.crit-card').length;
+  document.getElementById('tools-badge').textContent = tools.length + ' selected';
+  document.getElementById('crit-badge').textContent = document.querySelectorAll('.crit-card').length + ' criterion' +
+    (document.querySelectorAll('.crit-card').length === 1 ? '' : 'ia');
 }
 
-// ── Save ──────────────────────────────────────────────────────────────────────
 function currentLevelFilename() {
   const id = val('f-id') || 'l-my-level';
   return id + '.yaml';
@@ -1003,6 +979,9 @@ function renderValidationResult(result) {
   const warningsWrap = document.getElementById('lint-warnings-wrap');
   const errorsEl = document.getElementById('lint-errors');
   const warningsEl = document.getElementById('lint-warnings');
+  const pill = document.getElementById('status-pill');
+  const detail = document.getElementById('status-detail');
+  const sbStatus = document.getElementById('sb-status');
   const errors = Array.isArray(result?.errors) ? result.errors : [];
   const warnings = Array.isArray(result?.warnings) ? result.warnings : [];
 
@@ -1013,26 +992,40 @@ function renderValidationResult(result) {
   warningsWrap.style.display = warnings.length ? 'flex' : 'none';
 
   status.className = 'lint-status';
+  pill.className = 'status-pill';
   if (result?.valid) {
     if (warnings.length) {
       status.classList.add('warn');
       status.textContent = `VALID LEVEL · ${warnings.length} warning(s)`;
+      pill.classList.add('warn');
+      pill.textContent = 'valid · warnings';
+      sbStatus.textContent = 'valid · warnings';
+      sbStatus.style.color = 'var(--y2)';
     } else {
       status.classList.add('ok');
       status.textContent = 'VALID LEVEL · ready to save';
+      pill.classList.add('ok');
+      pill.textContent = 'valid';
+      sbStatus.textContent = 'valid';
+      sbStatus.style.color = 'var(--green)';
     }
   } else {
     status.classList.add('error');
     status.textContent = `INVALID LEVEL · ${errors.length || 1} issue(s)`;
+    pill.classList.add('error');
+    pill.textContent = 'invalid';
+    sbStatus.textContent = 'invalid';
+    sbStatus.style.color = 'var(--red)';
   }
+  detail.textContent = `${errors.length} errors · ${warnings.length} warnings · ${tools.length} tools`;
 }
 
 async function validateLevel() {
-  const btn = document.getElementById('btn-validate');
+  const btn = document.getElementById('btn-validate') || document.querySelector('.btn.small');
   const filename = currentLevelFilename();
   const content = buildYaml();
-  btn.disabled = true;
-  btn.textContent = '… VALIDATING';
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '… VALIDATING'; }
   try {
     const res = await fetch('/api/levels/validate', {
       method: 'POST',
@@ -1046,8 +1039,7 @@ async function validateLevel() {
     renderValidationResult({ valid: false, errors: [e.message], warnings: [] });
     return false;
   } finally {
-    btn.disabled = false;
-    btn.textContent = '🔎 VALIDATE';
+    if (btn) { btn.disabled = false; btn.textContent = originalText || '🔎 VALIDATE'; }
   }
 }
 
@@ -1070,6 +1062,8 @@ async function saveLevel() {
   if (res.ok) {
     msg.textContent = '✔ SAVED → levels/' + filename;
     msg.style.color = 'var(--green)';
+    document.getElementById('sb-status').textContent = 'saved';
+    document.getElementById('sb-status').style.color = 'var(--green)';
   } else {
     msg.textContent = '✘ ' + (data.error || 'error');
     msg.style.color = 'var(--red)';
@@ -1080,20 +1074,15 @@ async function saveLevel() {
 
 function copyYaml() {
   navigator.clipboard.writeText(buildYaml()).catch(() => {});
-  const btn = document.querySelector('.btn-copy');
-  btn.textContent = '✔ COPIED';
-  setTimeout(() => { btn.textContent = '📋 COPY'; }, 1500);
+  const btn = document.querySelector('.preview-actions .btn.small');
+  if (btn) { btn.textContent = '✔ COPIED'; setTimeout(() => { btn.textContent = 'COPY'; }, 1500); }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-// esc() is in shared-utils.js for DRY consolidation
 
 function setField(id, v) {
   const el = document.getElementById(id);
   if (!el) return;
   const s = (v == null) ? '' : String(v);
   el.value = s;
-  // sync associated selects (preset dropdowns)
   const sel = document.getElementById(id + '-sel');
   if (sel) {
     const opt = [...sel.options].find(o => o.value === s);
@@ -1101,11 +1090,10 @@ function setField(id, v) {
     else if (s) { sel.value = 'custom'; showCustomInput(id, true); }
     else { sel.selectedIndex = 0; showCustomInput(id, false); }
   }
-  // sync port select
   if (id === 'f-port') {
     const ps = document.getElementById('f-port-sel');
     if (ps) {
-      if (!s) { ps.value = 'none'; showPortCustom(false); }
+      if (!s) { ps.value = ''; showPortCustom(false); }
       else {
         const has = [...ps.options].find(o => o.value === s);
         ps.value = has ? s : 'custom';
@@ -1113,7 +1101,6 @@ function setField(id, v) {
       }
     }
   }
-  // sync category select
   if (id === 'f-cat') {
     const cs = document.getElementById('f-cat');
     if (cs.tagName === 'SELECT') {
@@ -1133,54 +1120,48 @@ function val(id) {
   return el ? el.value.trim() : '';
 }
 
-// ── Preset selects ────────────────────────────────────────────────────────────
 function showCustomInput(fieldId, show) {
   const inp = document.getElementById(fieldId);
   if (inp) inp.style.display = show ? 'block' : 'none';
 }
 
-function setPreset(fieldId, val) {
-  if (val === 'custom') {
+function setPreset(fieldId, value) {
+  if (value === 'custom') {
     showCustomInput(fieldId, true);
     document.getElementById(fieldId).focus();
   } else {
     showCustomInput(fieldId, false);
-    setField(fieldId, val);
+    setField(fieldId, value);
   }
   sync();
 }
 
-// ── Image combobox — auto-show/hide pkg sections ───────────────────────────
 const NODE_IMGS   = /^node:/i;
 const PYTHON_IMGS = /^python:|^django:|^flask:/i;
 
 function onImageChange(v) {
-  // highlight relevant package inputs
   const isNode   = NODE_IMGS.test(v);
   const isPython = PYTHON_IMGS.test(v);
   const npmWrap  = document.getElementById('pkg-npm-wrap');
   const pipWrap  = document.getElementById('pkg-pip-wrap');
-  const prevF    = document.getElementById('preview-fields');
   if (npmWrap) npmWrap.style.opacity  = isNode   ? '1' : '0.4';
   if (pipWrap) pipWrap.style.opacity  = isPython ? '1' : '0.4';
-  // auto-suggest port for node images
   if (isNode) {
     const ps = document.getElementById('f-port-sel');
-    if (ps && ps.value === 'none') { ps.value = '3000'; onPortPreset('3000'); }
+    if (ps && ps.value === '') { ps.value = '3000'; onPortPreset('3000'); }
   }
   sync();
 }
 
-// ── Port preset ───────────────────────────────────────────────────────────────
 function showPortCustom(show) {
   const wrap = document.getElementById('f-port-custom-wrap');
   const ppath = document.getElementById('f-ppath-wrap');
   if (wrap) wrap.style.display = show ? 'block' : 'none';
-  if (ppath) ppath.style.display = show || document.getElementById('f-port-sel')?.value !== 'none' ? 'flex' : 'none';
+  if (ppath) ppath.style.display = show || document.getElementById('f-port-sel')?.value !== '' ? 'flex' : 'none';
 }
 
 function onPortPreset(v) {
-  if (v === 'none') {
+  if (v === '') {
     setField('f-port', '');
     showPortCustom(false);
     document.getElementById('f-ppath-wrap').style.display = 'none';
@@ -1192,27 +1173,17 @@ function onPortPreset(v) {
     setField('f-port', v);
     document.getElementById('f-ppath-wrap').style.display = 'flex';
   }
-  if (v !== 'none') ensureToolEnabled('run_background');
+  if (v !== '') ensureToolEnabled('run_background');
   sync();
 }
 
-// ── Templates ─────────────────────────────────────────────────────────────────
 function applyTemplate(type) {
   if (!type) return;
-  // reset template dropdown so it can be reselected
   document.getElementById('tpl-sel').value = '';
-
   const T = {
     webapp: {
-      name:    'Webapp Level',
-      cat:     'webapp',
-      tags:    'webapp,node,server',
-      image:   'node:20-slim',
-      workdir: '/workspace',
-      apt:     'curl',
-      pip:     '',
-      npm:     '',
-      setup:   'mkdir -p /workspace',
+      name: 'Webapp Level', cat: 'webapp', tags: 'webapp,node,server', image: 'node:20-slim', workdir: '/workspace',
+      apt: 'curl', pip: '', npm: '', setup: 'mkdir -p /workspace',
       instr: [
         'Create a simple Express.js web server that:',
         '1. Listens on port 3000 bound to 0.0.0.0 (NOT localhost)',
@@ -1229,93 +1200,53 @@ function applyTemplate(type) {
         'Start it: node server.js &',
         'Then verify: curl -sf http://localhost:3000/',
       ].join('\n'),
-      turns:   '20',
-      timeout: '120',
-      eff:     '8',
-      port:    '3000',
-      ppath:   '/',
-      diff:    2,
-      tools:   ['bash', 'write_file', 'run_background'],
+      turns: '20', timeout: '120', eff: '8', port: '3000', ppath: '/', diff: 2,
+      tools: ['bash', 'write_file', 'run_background'],
       criteria: [
         { id:'server_responds', desc:'server responds on port 3000', check:'curl -sf http://localhost:3000/', weight: 1.5 },
         { id:'server_file_exists', desc:'server.js exists in /workspace', check:'test -f /workspace/server.js', weight: 0.5 },
       ],
     },
     file: {
-      name:    'File Transform Level',
-      cat:     'file-operations',
-      tags:    'beginner,file,transform',
-      image:   'python:3.11-slim',
-      workdir: '/workspace',
-      apt:     '',
-      pip:     '',
-      npm:     '',
-      setup:   'mkdir -p /workspace\nprintf "hello world\\nline two\\nline three" > /workspace/input.txt',
-      instr:   'Read /workspace/input.txt, convert all text to UPPERCASE, and write the result to /workspace/output.txt.',
-      turns:   '10',
-      timeout: '60',
-      eff:     '3',
-      port:    '',
-      ppath:   '/',
-      diff:    1,
-      tools:   ['bash', 'read_file', 'write_file'],
+      name: 'File Transform Level', cat: 'file-operations', tags: 'beginner,file,transform', image: 'python:3.11-slim', workdir: '/workspace',
+      apt: '', pip: '', npm: '', setup: 'mkdir -p /workspace\nprintf "hello world\\nline two\\nline three" > /workspace/input.txt',
+      instr: 'Read /workspace/input.txt, convert all text to UPPERCASE, and write the result to /workspace/output.txt.',
+      turns: '10', timeout: '60', eff: '3', port: '', ppath: '/', diff: 1,
+      tools: ['bash', 'read_file', 'write_file'],
       criteria: [
         { id:'output_exists', desc:'output.txt exists', check:'test -f /workspace/output.txt', weight: 1.0 },
         { id:'output_uppercase', desc:'output is uppercase', check:'grep -q "HELLO WORLD" /workspace/output.txt', weight: 1.5 },
       ],
     },
     api: {
-      name:    'API Fetch Level',
-      cat:     'networking',
-      tags:    'api,http,json',
-      image:   'python:3.11-slim',
-      workdir: '/workspace',
-      apt:     'curl',
-      pip:     'requests',
-      npm:     '',
-      setup:   'mkdir -p /workspace',
-      instr:   'Fetch the JSON from https://httpbin.org/json and save the "slideshow.title" field value as plain text to /workspace/title.txt.',
-      turns:   '10',
-      timeout: '60',
-      eff:     '4',
-      port:    '',
-      ppath:   '/',
-      diff:    2,
-      tools:   ['bash', 'write_file'],
+      name: 'API Fetch Level', cat: 'networking', tags: 'api,http,json', image: 'python:3.11-slim', workdir: '/workspace',
+      apt: 'curl', pip: 'requests', npm: '', setup: 'mkdir -p /workspace',
+      instr: 'Fetch the JSON from https://httpbin.org/json and save the "slideshow.title" field value as plain text to /workspace/title.txt.',
+      turns: '10', timeout: '60', eff: '4', port: '', ppath: '/', diff: 2,
+      tools: ['bash', 'write_file'],
       criteria: [
         { id:'title_file_exists', desc:'title.txt exists', check:'test -f /workspace/title.txt', weight: 1.0 },
         { id:'title_correct', desc:'title contains expected text', check:'grep -qi "sample" /workspace/title.txt', weight: 2.0 },
       ],
     },
     data: {
-      name:    'Data Pipeline Level',
-      cat:     'data',
-      tags:    'data,csv,pandas,analysis',
-      image:   'python:3.11-slim',
-      workdir: '/workspace',
-      apt:     '',
-      pip:     'pandas',
-      npm:     '',
+      name: 'Data Pipeline Level', cat: 'data', tags: 'data,csv,pandas,analysis', image: 'python:3.11-slim', workdir: '/workspace',
+      apt: '', pip: 'pandas', npm: '',
       setup: [
         'mkdir -p /workspace',
         'python3 -c "',
         'import csv, random, datetime',
-        'rows = [[\"date\",\"sales\"]]',
+        'rows = [["date","sales"]]',
         'for i in range(30):',
         '    d = datetime.date(2024,1,1) + datetime.timedelta(days=i)',
         '    rows.append([str(d), random.randint(100,1000)])',
-        'with open(\"/workspace/sales.csv\",\"w\",newline=\"\") as f:',
+        'with open("/workspace/sales.csv","w",newline="") as f:',
         '    csv.writer(f).writerows(rows)',
         '"',
       ].join('\n'),
-      instr:   'Analyze /workspace/sales.csv and write a summary to /workspace/summary.txt that includes:\n- Total sales\n- Average daily sales (rounded to 2 decimal places)\n- The date with the highest sales',
-      turns:   '15',
-      timeout: '90',
-      eff:     '5',
-      port:    '',
-      ppath:   '/',
-      diff:    2,
-      tools:   ['bash', 'read_file', 'write_file'],
+      instr: 'Analyze /workspace/sales.csv and write a summary to /workspace/summary.txt that includes:\n- Total sales\n- Average daily sales (rounded to 2 decimal places)\n- The date with the highest sales',
+      turns: '15', timeout: '90', eff: '5', port: '', ppath: '/', diff: 2,
+      tools: ['bash', 'read_file', 'write_file'],
       criteria: [
         { id:'summary_exists', desc:'summary.txt exists', check:'test -f /workspace/summary.txt', weight: 1.0 },
         { id:'has_total', desc:'summary mentions total', check:'grep -qi "total" /workspace/summary.txt', weight: 1.0 },
@@ -1326,7 +1257,6 @@ function applyTemplate(type) {
 
   const tpl = T[type];
   if (!tpl) return;
-
   setField('f-name',    tpl.name);
   setField('f-id',      'l-' + type + '-level');
   setField('f-cat',     tpl.cat);
@@ -1344,17 +1274,12 @@ function applyTemplate(type) {
   setField('f-eff',     tpl.eff);
   setField('f-port',    tpl.port);
   setField('f-ppath',   tpl.ppath);
-  onPortPreset(tpl.port ? String(tpl.port) : 'none');
+  onPortPreset(tpl.port ? String(tpl.port) : '');
   setDiff(tpl.diff);
-
-  // tools
   setToolSelection(tpl.tools || []);
-
-  // criteria
   document.getElementById('crit-list').innerHTML = '';
   critCount = 0;
   (tpl.criteria || []).forEach(c => addCriterion(c));
-
   sync();
 }
 
@@ -1362,8 +1287,7 @@ function applyTemplate(type) {
 let cfOpen    = false;
 let cfBusy    = false;
 let cfHistory = [];
-let _cfProviders = [];
-let _cfProvider = { base_url: '', model: '', api_key: '', label: '' };
+let _pmCF = null;
 
 async function toggleCF() {
   cfOpen = !cfOpen;
@@ -1371,102 +1295,26 @@ async function toggleCF() {
   document.getElementById('cf-fab').classList.toggle('active', cfOpen);
   if (cfOpen) {
     document.getElementById('cf-input').focus();
-    await loadCFProviders();
-  }
-}
-
-async function loadCFProviders() {
-  try {
-    const stored = await fetch('/api/providers').then(r => r.json());
-    _cfProviders = Array.isArray(stored) ? stored : [];
-    if (!_cfProviders.length) {
-      const c = await fetch('/api/credentials').then(r => r.json());
-      if (c.providers?.[0]) _cfProviders = c.providers;
-      else if (c.base_url && c.model) {
-        _cfProviders = [{
-          base_url: c.base_url,
-          model: c.model,
-          api_key: c.api_key || '',
-          label: c.model,
-          source: 'legacy:creds',
-          enabled: true,
-        }];
+    if (!_pmCF) {
+      _pmCF = new ProviderManager('pm-cf', {
+        showSave: true,
+        onChange: (p) => {
+          const lbl = document.getElementById('cf-model-lbl');
+          if (lbl) lbl.textContent = p.label || p.model || 'not configured';
+        },
+      });
+      await _pmCF.load();
+      if (!_pmCF.getSelected().base_url && _pmCF.providers[0]) {
+        _pmCF.setSelected(_pmCF.providers[0]);
       }
     }
-    renderCFProviderBar();
-    if (!_cfProvider.base_url && _cfProviders[0]) {
-      setCFProvider(_cfProviders[0]);
-    }
-  } catch (e) {
-    _cfProviders = [];
   }
 }
 
-function renderCFProviderBar() {
-  const sel = document.getElementById('cf-provider-select');
-  if (!sel) return;
-  if (!_cfProviders.length) {
-    sel.innerHTML = '<option value="__manual__">— manual —</option>';
-    return;
-  }
-  const selectedKey = _cfProvider.base_url + '|' + _cfProvider.model;
-  sel.innerHTML = _cfProviders.map(p => {
-    const key = p.base_url + '|' + p.model;
-    const host = p.base_url.replace(/^https?:\/\//, '');
-    const label = esc(p.label || p.model || 'provider');
-    return `<option value="${esc(key)}" ${key === selectedKey ? 'selected' : ''}>${label} @ ${esc(host)}</option>`;
-  }).join('') + '<option value="__manual__">— manual —</option>';
+function getCFProvider() {
+  return _pmCF ? _pmCF.getSelected() : { base_url: '', model: '', api_key: '', label: '' };
 }
 
-function setCFProvider(provider) {
-  _cfProvider = {
-    base_url: provider.base_url || '',
-    model: provider.model || '',
-    api_key: provider.api_key || '',
-    label: provider.label || provider.model || ''
-  };
-  const lbl = document.getElementById('cf-model-lbl');
-  if (lbl) lbl.textContent = _cfProvider.label || _cfProvider.model || 'not configured';
-  const urlIn = document.getElementById('cf-provider-url');
-  const modelIn = document.getElementById('cf-provider-model');
-  const keyIn = document.getElementById('cf-provider-key');
-  if (urlIn) urlIn.value = _cfProvider.base_url;
-  if (modelIn) modelIn.value = _cfProvider.model;
-  if (keyIn) keyIn.value = _cfProvider.api_key;
-  renderCFProviderBar();
-}
-
-function onCFProviderSelect(value) {
-  if (value === '__manual__') {
-    document.getElementById('cf-provider-panel').classList.add('open');
-    return;
-  }
-  document.getElementById('cf-provider-panel').classList.remove('open');
-  const [base_url, ...rest] = value.split('|');
-  const model = rest.join('|');
-  const p = _cfProviders.find(x => x.base_url === base_url && x.model === model);
-  if (p) setCFProvider(p);
-}
-
-function toggleCFProviderPanel() {
-  document.getElementById('cf-provider-panel').classList.toggle('open');
-}
-
-function applyCFProvider() {
-  const base_url = document.getElementById('cf-provider-url').value.trim();
-  const model = document.getElementById('cf-provider-model').value.trim();
-  const api_key = document.getElementById('cf-provider-key').value.trim();
-  const status = document.getElementById('cf-provider-status');
-  if (!base_url || !model) {
-    if (status) status.textContent = 'URL and model required';
-    return;
-  }
-  setCFProvider({base_url, model, api_key, label: model, source: 'manual', enabled: true});
-  document.getElementById('cf-provider-panel').classList.remove('open');
-  if (status) status.textContent = '';
-}
-
-// Serialize current form to YAML string for the AI context
 function serializeLevelContext() {
   return buildYaml();
 }
@@ -1475,10 +1323,10 @@ function renderBuilderPatchControl(aEl, patch, label='PATCH READY') {
   if (!patch || typeof patch !== 'object') return;
   const keys = Object.keys(patch).join(', ');
   const wrap = document.createElement('div');
-  wrap.className = 'cf-patch-wrap';
-  wrap.innerHTML = `<div class="cf-patch-info">◆ ${esc(label)}: ${esc(keys)}</div>`;
+  wrap.className = 'ai-patch-wrap';
+  wrap.innerHTML = `<div class="ai-patch-info">◆ ${esc(label)}: ${esc(keys)}</div>`;
   const btn = document.createElement('button');
-  btn.className = 'cf-patch-btn';
+  btn.className = 'ai-patch-btn';
   btn.textContent = '▶ APPLY PATCH TO FORM';
   btn.onclick = () => {
     applyLevelPatch(patch);
@@ -1504,13 +1352,14 @@ async function sendBuilderAI() {
   cfBusy = true;
   document.getElementById('cf-send-btn').disabled = true;
   const aEl    = appendCF('assistant', '');
-  const bodyEl = aEl.querySelector('.cf-body');
+  const bodyEl = aEl.querySelector('.ai-body');
   const cursor = document.createElement('span');
-  cursor.className = 'cf-cursor';
+  cursor.className = 'ai-cursor';
   bodyEl.appendChild(cursor);
 
   let full = '';
   try {
+    const p = getCFProvider();
     const res = await fetch('/api/chat', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1519,9 +1368,9 @@ async function sendBuilderAI() {
         page:          'builder',
         page_context:  serializeLevelContext(),
         allow_control: true,
-        base_url:      _cfProvider.base_url,
-        model:         _cfProvider.model,
-        api_key:       _cfProvider.api_key,
+        base_url:      p.base_url,
+        model:         p.model,
+        api_key:       p.api_key,
       }),
     });
     const reader  = res.body.getReader();
@@ -1584,14 +1433,12 @@ async function sendBuilderAI() {
     cfBusy = false;
     document.getElementById('cf-send-btn').disabled = false;
     document.getElementById('cf-input').focus();
-
-    // Detect <level_patch> blocks and render an apply button
     const patchMatch = full.match(/<level_patch>([\s\S]*?)<\/level_patch>/);
     if (patchMatch) {
       try {
         const patchJson = JSON.parse(patchMatch[1].trim());
         renderBuilderPatchControl(aEl, patchJson, 'PATCH READY');
-      } catch(e) { /* malformed patch JSON — silently skip */ }
+      } catch(e) {}
     }
   }
 }
@@ -1599,17 +1446,16 @@ async function sendBuilderAI() {
 function appendCF(role, text) {
   const msgs = document.getElementById('cf-msgs');
   const div  = document.createElement('div');
-  div.className = 'cf-msg ' + role;
+  div.className = 'ai-msg ' + role;
   div.innerHTML = `
-    <span class="cf-role ${role}">${role === 'user' ? 'YOU' : 'BENCHBOT-AI'}</span>
-    <div class="cf-body">${esc(text)}</div>
+    <span class="ai-role ${role}">${role === 'user' ? 'YOU' : 'BENCHBOT-AI'}</span>
+    <div class="ai-body">${esc(text)}</div>
   `;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
   return div;
 }
 
-// Apply a <level_patch> JSON object to the live form
 function applyLevelPatch(patch) {
   const fieldMap = {
     name:              'f-name',
@@ -1636,74 +1482,22 @@ function applyLevelPatch(patch) {
       setField(fieldId, String(v));
     }
   }
-
-  // image → trigger package-visibility update
   if (patch.image) onImageChange(patch.image);
-
-  // difficulty
   if (patch.difficulty !== undefined) setDiff(Number(patch.difficulty));
-
-  // tools — full replacement
-  if (Array.isArray(patch.tools)) {
-    setToolSelection(patch.tools);
-  }
-
-  // criteria — full replacement when provided
+  if (Array.isArray(patch.tools)) setToolSelection(patch.tools);
   if (Array.isArray(patch.criteria)) {
     document.getElementById('crit-list').innerHTML = '';
     critCount = 0;
     patch.criteria.forEach(c => addCriterion(c));
   }
-
   sync();
+}
+
+// Settings placeholder (shared component from dashboard not loaded here)
+function openSettings() {
+  alert('Settings are available from the main dashboard.');
 }
 </script>
 
-<!-- BENCHBOT-AI FAB + Floating Chat (Builder) -->
-<button class="chat-fab" id="cf-fab" onclick="toggleCF()">🤖 AI EDIT</button>
-<div class="chat-float" id="cf-panel">
-  <div class="cf-hdr">
-    <span class="cf-title">BENCHBOT-AI</span>
-    <span class="cf-model" id="cf-model-lbl">—</span>
-    <button class="cf-provider-btn" id="cf-provider-toggle" onclick="toggleCFProviderPanel()" title="Configure chat provider">⚙</button>
-    <button class="cf-close" onclick="toggleCF()">✕</button>
-  </div>
-  <div class="cf-provider-bar" id="cf-provider-bar">
-    <span class="cf-provider-label">Model</span>
-    <select class="cf-provider-select" id="cf-provider-select" onchange="onCFProviderSelect(this.value)">
-      <option value="">loading…</option>
-    </select>
-  </div>
-  <div class="cf-provider-panel" id="cf-provider-panel">
-    <div class="field">
-      <label>Base URL</label>
-      <input type="text" id="cf-provider-url" placeholder="http://localhost:11434/v1">
-    </div>
-    <div class="field">
-      <label>Model</label>
-      <input type="text" id="cf-provider-model" placeholder="llama3">
-    </div>
-    <div class="field">
-      <label>API Key</label>
-      <input type="password" id="cf-provider-key" placeholder="(empty for local)">
-    </div>
-    <button class="cf-provider-save" onclick="applyCFProvider()">Use this provider</button>
-    <div class="cf-provider-status" id="cf-provider-status"></div>
-  </div>
-  <div class="cf-ctx">◆ level editor · patch proposals · apply to form</div>
-  <div class="cf-msgs" id="cf-msgs">
-    <div class="cf-msg assistant">
-      <span class="cf-role assistant">BENCHBOT-AI</span>
-      <div class="cf-body">Zeig mir was du baust — ich schlage Patches vor die du direkt auf das Formular anwenden kannst.</div>
-    </div>
-  </div>
-  <div class="cf-input-wrap">
-    <textarea class="cf-textarea" id="cf-input"
-      placeholder="Mach die Kriterien strenger…"
-      rows="2"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendBuilderAI();}"></textarea>
-    <button class="cf-send" id="cf-send-btn" onclick="sendBuilderAI()">▶</button>
-  </div>
-</div>
 </body>
 </html>

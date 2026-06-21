@@ -5,6 +5,8 @@
 <title>benchb0t</title>
 <!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/shared-pm.css">
+<link rel="stylesheet" href="/static/shared-artifacts.css">
 <style>
 :root {
   --bg:      #0a0800;
@@ -95,6 +97,19 @@ header {
 }
 .h-session-ctx-btn:hover { border-color: var(--y1); color: var(--y1); }
 .h-session-ctx-btn.active { border-color: var(--y2); color: var(--y2); }
+
+.h-link {
+  font-family: var(--font);
+  font-size: 6px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-decoration: none;
+  border: 1px solid var(--dim);
+  background: none;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.h-link:hover { color: var(--y1); border-color: var(--y1); }
 
 /* ── SIDEBAR ── */
 aside {
@@ -1174,6 +1189,119 @@ footer {
   color: var(--dim);
   line-height: 1.8;
 }
+
+/* ── SETTINGS OVERLAY ── */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0,0,0,.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.settings-backdrop.open {
+  display: flex;
+}
+.settings-card {
+  width: 640px;
+  max-width: 100%;
+  max-height: 90vh;
+  background: var(--panel);
+  border: 3px solid var(--y1);
+  box-shadow: 0 0 40px rgba(255,215,0,.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.settings-hdr {
+  background: var(--b1);
+  border-bottom: 2px solid var(--y1);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.settings-logo { font-size: 11px; color: var(--y1); letter-spacing: 2px; }
+.settings-title { font-size: 7px; color: var(--text); letter-spacing: 2px; text-transform: uppercase; flex: 1; }
+.settings-close {
+  background: none;
+  border: 1px solid var(--b3);
+  color: var(--dim);
+  font-family: var(--font);
+  font-size: 10px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  cursor: pointer;
+}
+.settings-close:hover { border-color: var(--y1); color: var(--y1); }
+.settings-body {
+  overflow-y: auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.settings-body::-webkit-scrollbar { width: 4px; }
+.settings-body::-webkit-scrollbar-thumb { background: var(--b2); }
+.settings-section {
+  border: 2px solid var(--b2);
+  background: var(--panel2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-section-title {
+  font-size: 6px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ydk);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.settings-section-title::before { content: '▶'; color: var(--y2); }
+.settings-footer {
+  border-top: 2px solid var(--b1);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  background: var(--panel2);
+  gap: 12px;
+}
+.settings-status {
+  font-size: 6px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  min-height: 14px;
+}
+.settings-save-btn {
+  font-family: var(--font);
+  font-size: 7px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  cursor: pointer;
+  background: var(--y1);
+  color: #000;
+  border: 2px solid var(--y1);
+  box-shadow: 0 4px 0 var(--ydk);
+}
+.settings-save-btn:hover { filter: brightness(1.1); }
+.settings-save-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--ydk); }
+
+/* scanlines toggle class */
+body.no-scanlines::after {
+  display: none;
+}
+
 .ob-preset-bar {
   display: flex;
   gap: 6px;
@@ -1198,7 +1326,7 @@ footer {
 
 <!-- HEADER -->
 <header>
-  <span class="logo">benchb0t</span>
+  <img src="/static/benchb0t-logo.png" alt="benchb0t" style="height:54px;width:auto;filter:drop-shadow(0 0 8px rgba(255,215,0,.3))">
   <span class="hsep">│</span>
   <span><span class="dot" id="dot"></span><span class="hmeta" id="conn-lbl">CONNECTING</span></span>
   <span class="hsep">│</span>
@@ -1216,11 +1344,88 @@ footer {
   </div>
 
   <div style="display:flex;gap:8px;margin-left:auto">
-    <a href="/builder"   style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">BUILDER ↗</a>
-    <a href="/analytics" style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">ANALYTICS ↗</a>
-    <a href="/history"   style="font-size:6px;letter-spacing:2px;color:var(--dim);text-decoration:none;border:1px solid var(--dim);padding:3px 8px" onmouseover="this.style.color='var(--y1)';this.style.borderColor='var(--y1)'" onmouseout="this.style.color='var(--dim)';this.style.borderColor='var(--dim)'">HISTORY ↗</a>
+    <button class="h-link" onclick="openSettings()" title="Settings">⚙ SETTINGS</button>
+    <a href="/builder"   class="h-link">BUILDER ↗</a>
+    <a href="/analytics" class="h-link">ANALYTICS ↗</a>
+    <a href="/history"   class="h-link">HISTORY ↗</a>
   </div>
 </header>
+
+<!-- SETTINGS OVERLAY -->
+<div class="settings-backdrop" id="settings-backdrop">
+  <div class="settings-card">
+    <div class="settings-hdr">
+      <span class="settings-logo">benchb0t</span>
+      <span class="settings-title">Settings</span>
+      <button class="settings-close" onclick="closeSettings()" title="Close">×</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-title">Run Defaults</div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-shot">
+          <label for="s-shot">Capture preview screenshot</label>
+        </div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-save-result">
+          <label for="s-save-result">Save result bundle (.zip)</label>
+        </div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-save-container">
+          <label for="s-save-container">Save container snapshot (Docker image)</label>
+        </div>
+        <div class="field">
+          <label>Default harness</label>
+          <select id="s-harness"></select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Dashboard</div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-scanlines">
+          <label for="s-scanlines">CRT scanlines</label>
+        </div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-confirm-stop">
+          <label for="s-confirm-stop">Confirm before stopping a run</label>
+        </div>
+        <div class="field">
+          <label>Auto-refresh interval (seconds)</label>
+          <input type="number" id="s-refresh" min="1" max="60" step="1">
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Providers</div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-auto-detect">
+          <label for="s-auto-detect">Auto-detect providers on startup</label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">BenchBot-AI</div>
+        <div class="field">
+          <label>Assistant language</label>
+          <select id="s-lang">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="auto">Auto (follow browser)</option>
+          </select>
+        </div>
+        <div class="field-chk">
+          <input type="checkbox" id="s-tool-previews">
+          <label for="s-tool-previews">Show tool result previews in chat</label>
+        </div>
+      </div>
+    </div>
+    <div class="settings-footer">
+      <span class="settings-status" id="settings-status"></span>
+      <button class="settings-save-btn" onclick="saveSettings()">💾 SAVE SETTINGS</button>
+    </div>
+  </div>
+</div>
 
 <!-- ONBOARDING OVERLAY -->
 <div class="onboarding-backdrop" id="ob-backdrop">
@@ -1235,6 +1440,12 @@ footer {
         (Ollama, vLLM, OpenRouter, OpenAI, …). Scan your network or paste a URL
         below. Select one or two providers to get started — second provider enables
         side-by-side comparison.
+      </div>
+
+      <div class="ob-section-title">Saved providers</div>
+      <div id="pm-onboarding"></div>
+      <div style="margin-top:6px;margin-bottom:12px">
+        <button class="ob-btn" onclick="obAddSavedProvider()">➕ Add to selection</button>
       </div>
 
       <div class="ob-section-title">Auto-detect</div>
@@ -1309,12 +1520,9 @@ footer {
     <div class="ct">▶ Launch</div>
     <div id="run-status" class="rstatus">IDLE</div>
 
-    <!-- Provider preset chips + auto-detect -->
+    <!-- Provider auto-detect -->
     <div class="preset-bar" id="preset-bar">
-      <button class="preset-detect-btn" id="detect-btn" onclick="detectProviders(1)">⟳ DETECT</button>
-    </div>
-    <div class="preset-bar" id="preset-bar-2" style="display:none">
-      <button class="preset-detect-btn" onclick="detectProviders(2)">⟳ DETECT</button>
+      <button class="preset-detect-btn" id="detect-btn" onclick="detectProviders()">⟳ DETECT PROVIDERS</button>
     </div>
 
     <div class="provider-stack">
@@ -1323,12 +1531,7 @@ footer {
           <span class="provider-label">Provider 1</span>
           <span class="provider-note">required</span>
         </div>
-        <div class="field"><label>Base URL</label>
-          <input id="f-url" type="text" placeholder="localhost:11434"></div>
-        <div class="field"><label>Model</label>
-          <input id="f-model" type="text" placeholder="llama3"></div>
-        <div class="field"><label>API Key</label>
-          <input id="f-key" type="password" placeholder="(empty for local)"></div>
+        <div id="pm-slot-1"></div>
       </div>
 
       <div class="field-chk" style="margin-bottom:0">
@@ -1341,12 +1544,7 @@ footer {
           <span class="provider-label">Provider 2</span>
           <span class="provider-note">optional</span>
         </div>
-        <div class="field"><label>Base URL</label>
-          <input id="f-url-2" type="text" placeholder="api.openai.com/v1"></div>
-        <div class="field"><label>Model</label>
-          <input id="f-model-2" type="text" placeholder="gpt-4.1"></div>
-        <div class="field"><label>API Key</label>
-          <input id="f-key-2" type="password" placeholder="sk-..."></div>
+        <div id="pm-slot-2"></div>
       </div>
     </div>
 
@@ -1434,34 +1632,12 @@ footer {
 </main>
 
 <!-- BENCHBOT-AI CHAT PANEL -->
-<div class="chat-panel" id="chat-panel">
+  <div class="chat-panel" id="chat-panel">
   <div class="chat-hdr">
     <span class="chat-hdr-title">BENCHBOT-AI</span>
     <span class="chat-hdr-model" id="chat-model-lbl">—</span>
-    <button class="chat-provider-btn" id="chat-provider-toggle" onclick="toggleChatProviderPanel()" title="Configure chat provider">⚙</button>
   </div>
-  <div class="chat-provider-bar" id="chat-provider-bar">
-    <span class="chat-provider-label">Model</span>
-    <select class="chat-provider-select" id="chat-provider-select" onchange="onChatProviderSelect(this.value)">
-      <option value="">loading…</option>
-    </select>
-  </div>
-  <div class="chat-provider-panel" id="chat-provider-panel">
-    <div class="field">
-      <label>Base URL</label>
-      <input type="text" id="chat-provider-url" placeholder="http://localhost:11434/v1">
-    </div>
-    <div class="field">
-      <label>Model</label>
-      <input type="text" id="chat-provider-model" placeholder="llama3">
-    </div>
-    <div class="field">
-      <label>API Key</label>
-      <input type="password" id="chat-provider-key" placeholder="(empty for local)">
-    </div>
-    <button class="chat-provider-save" onclick="applyChatProvider()">Use this provider</button>
-    <div class="chat-provider-status" id="chat-provider-status"></div>
-  </div>
+  <div id="pm-chat"></div>
   <div class="chat-ctx" id="chat-ctx-lbl">
     ◆ context: stats · runs · levels · logs
   </div>
@@ -1490,6 +1666,7 @@ footer {
 
 </div>
 
+<script src="/static/shared-utils.js"></script>
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 let runStatus = 'idle';
@@ -1564,137 +1741,116 @@ function copyRunId() {
   if (el) { el.textContent = 'copied!'; setTimeout(() => { el.textContent = _activeRunId.slice(0,8); }, 1200); }
 }
 
-function providerSuffix(slot) {
-  return slot === 1 ? '' : '-2';
+function getProviderConfig(slot) {
+  if (slot === 1) return _pmSlot1 ? _pmSlot1.getSelected() : { base_url: '', model: '', api_key: '', label: '' };
+  if (slot === 2) return _pmSlot2 ? _pmSlot2.getSelected() : { base_url: '', model: '', api_key: '', label: '' };
+  return { base_url: '', model: '', api_key: '', label: '' };
 }
 
 function setProviderFields(slot, provider) {
-  const suffix = providerSuffix(slot);
-  document.getElementById('f-url' + suffix).value   = provider?.base_url || '';
-  document.getElementById('f-model' + suffix).value = provider?.model || '';
-  document.getElementById('f-key' + suffix).value   = provider?.api_key || '';
+  if (slot === 1 && _pmSlot1) _pmSlot1.setSelected(provider || {});
+  if (slot === 2 && _pmSlot2) _pmSlot2.setSelected(provider || {});
 }
 
-function getProviderConfig(slot) {
-  const suffix = providerSuffix(slot);
-  return {
-    base_url: document.getElementById('f-url' + suffix).value.trim(),
-    model: document.getElementById('f-model' + suffix).value.trim(),
-    api_key: document.getElementById('f-key' + suffix).value.trim(),
-    label: document.getElementById('f-model' + suffix).value.trim(),
-  };
-}
+let _pmSlot1 = null;
+let _pmSlot2 = null;
+let _pmChat = null;
 
-// ── Provider auto-detect + presets ────────────────────────────────────────────
-
-// Cache of last detected providers (shared for both slots)
-let _detectedProviders = null;
-
-// Static preset fallbacks shown before detection runs
-const PROVIDER_PRESETS = [
-  { id:'claude',   label:'CLAUDE',   base_url:'https://api.anthropic.com/v1',  model:'claude-sonnet-4-5', api_key:'' },
-  { id:'openai',   label:'CODEX',    base_url:'https://api.openai.com/v1',     model:'gpt-4.1',           api_key:'' },
-  { id:'opencode', label:'OPENCODE', base_url:'http://localhost:3000/v1',      model:'',                  api_key:'opencode' },
-  { id:'ollama',   label:'OLLAMA',   base_url:'http://localhost:11434/v1',     model:'llama3',            api_key:'ollama' },
-  { id:'lmstudio', label:'LM STUDIO',base_url:'http://localhost:1234/v1',      model:'',                  api_key:'lm-studio' },
-];
-
-// Registry: chip index → provider object (rebuilt on each renderPresetBar call)
-const _presetRegistry = {};
-
-function renderPresetBar(slot, detected) {
-  const barId = slot === 1 ? 'preset-bar' : 'preset-bar-2';
-  const bar   = document.getElementById(barId);
-  if (!bar) return;
-
-  const detectedIds = new Set((detected || []).map(p => p.id));
-  const chips = [];
-
-  // Detected providers first (golden)
-  (detected || []).forEach(p => {
-    const key = `${slot}_${p.id}`;
-    _presetRegistry[key] = p;
-    const modelDisp = p.model ? ` · ${p.model.split('/').pop().slice(0, 16)}` : '';
-    chips.push(
-      `<button class="preset-chip detected" title="${esc(p.source || p.label)}"` +
-      ` data-preset-key="${esc(key)}" data-preset-slot="${slot}"` +
-      ` onclick="applyPreset(this)">${esc(p.label)}${esc(modelDisp)}</button>`
-    );
+async function initProviderManagers() {
+  _pmSlot1 = new ProviderManager('pm-slot-1', { showSave: true, onChange: onRunProviderChange });
+  _pmSlot2 = new ProviderManager('pm-slot-2', { showSave: true, onChange: onRunProviderChange });
+  _pmChat = new ProviderManager('pm-chat', {
+    showSave: true,
+    onChange: (p) => {
+      const lbl = document.getElementById('chat-model-lbl');
+      if (lbl) lbl.textContent = p.label || p.model || 'not configured';
+    },
   });
-
-  // Static fallbacks not already detected
-  PROVIDER_PRESETS.forEach(p => {
-    if (detectedIds.has(p.id)) return;
-    const key = `${slot}_${p.id}`;
-    _presetRegistry[key] = p;
-    chips.push(
-      `<button class="preset-chip" title="manual preset"` +
-      ` data-preset-key="${esc(key)}" data-preset-slot="${slot}"` +
-      ` onclick="applyPreset(this)">${esc(p.label)}</button>`
-    );
-  });
-
-  const detectBtn = `<button class="preset-detect-btn" onclick="detectProviders(${slot})">⟳ DETECT</button>`;
-  bar.innerHTML = chips.join('') + detectBtn;
+  await Promise.all([_pmSlot1.load(), _pmSlot2.load(), _pmChat.load()]);
+  const c = await fetch('/api/credentials').then(r => r.json()).catch(() => ({}));
+  const first = _pmSlot1.providers[0] || (c.providers?.[0] ? { ...c.providers[0], source: 'legacy:creds' } : null);
+  if (first && !_pmSlot1.getSelected().base_url) _pmSlot1.setSelected(first);
+  if (_pmChat && first && !_pmChat.getSelected().base_url) _pmChat.setSelected(first);
 }
 
-function applyPreset(el) {
-  const key  = el.dataset.presetKey;
-  const slot = parseInt(el.dataset.presetSlot, 10);
-  const p    = _presetRegistry[key];
-  if (!p) return;
-  const suffix = providerSuffix(slot);
-  document.getElementById('f-url'   + suffix).value = p.base_url || '';
-  document.getElementById('f-model' + suffix).value = p.model || (p.models && p.models[0]) || '';
-  document.getElementById('f-key'   + suffix).value = p.api_key  || '';
+function onRunProviderChange() {
+  // No-op: values are read lazily via getProviderConfig
 }
 
-async function detectProviders(slot) {
-  const barId = slot === 1 ? 'preset-bar' : 'preset-bar-2';
-  const bar   = document.getElementById(barId);
-  if (bar) {
-    bar.innerHTML = `<span style="font-size:5px;color:var(--dim);letter-spacing:1px">SCANNING…</span>`;
-  }
+async function detectProviders() {
+  const btn = document.getElementById('detect-btn');
+  if (btn) btn.textContent = 'SCANNING…';
   try {
     const resp = await fetch('/api/detect-providers');
     const data = await resp.json();
-    _detectedProviders = data;
-    renderPresetBar(1, data);
-    if (document.getElementById('f-parallel')?.checked) {
-      renderPresetBar(2, data);
+    if (Array.isArray(data) && data.length) {
+      // Save detected providers so they appear in all dropdowns
+      const toSave = data.filter(p => p.base_url && p.model).map(p => ({
+        id: p.id || `detected-${p.model}`,
+        label: p.label || p.model,
+        base_url: p.base_url,
+        model: p.model,
+        api_key: p.api_key || '',
+        source: p.source || 'auto-detect',
+        enabled: true,
+      }));
+      await fetch('/api/onboarding/providers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: toSave }),
+      });
+      await Promise.all([_pmSlot1.load(), _pmSlot2.load(), _pmChat.load()]);
     }
+    if (btn) btn.textContent = '⟳ DETECT PROVIDERS';
   } catch (e) {
-    if (bar) bar.innerHTML = `<span style="font-size:5px;color:var(--red);letter-spacing:1px">DETECT FAILED</span>
-      <button class="preset-detect-btn" onclick="detectProviders(${slot})">⟳ RETRY</button>`;
+    if (btn) btn.textContent = 'DETECT FAILED — RETRY';
   }
 }
 
 function toggleSecondaryProvider(force) {
   const enabled = (force !== undefined) ? force : document.getElementById('f-parallel').checked;
   document.getElementById('provider-2-wrap').style.display = enabled ? 'block' : 'none';
-  const bar2 = document.getElementById('preset-bar-2');
-  if (bar2) {
-    bar2.style.display = enabled ? 'flex' : 'none';
-    if (enabled && bar2.childElementCount <= 1) {
-      // Render presets for slot 2 (use cached detected or empty)
-      renderPresetBar(2, _detectedProviders || []);
+}
+
+// ── Session restore across reloads ────────────────────────────────────────────
+async function restoreActiveSession() {
+  try {
+    const status = await fetch('/api/status').then(r => r.json());
+    const batch = status.active_batch || {};
+    if (status.status === 'running' && batch.providers?.length) {
+      setStatus('running');
+      setProviderFields(1, batch.providers[0]);
+      if (batch.providers[1]) {
+        document.getElementById('f-parallel').checked = true;
+        toggleSecondaryProvider(true);
+        setProviderFields(2, batch.providers[1]);
+      }
+      if (batch.level) {
+        const levelEl = document.getElementById('f-level');
+        if (levelEl) {
+          const exists = Array.from(levelEl.options).some(o => o.value === batch.level);
+          if (exists) levelEl.value = batch.level;
+        }
+      }
+      if ('all_levels' in batch) document.getElementById('f-all').checked = !!batch.all_levels;
+      if ('capture_preview_screenshot' in batch) document.getElementById('f-shot').checked = !!batch.capture_preview_screenshot;
+      if ('save_result_bundle' in batch) document.getElementById('f-save-result').checked = !!batch.save_result_bundle;
+      if ('save_container_snapshot' in batch) document.getElementById('f-save-container').checked = !!batch.save_container_snapshot;
+      // Rebuild terminal panels for the active run so the user sees the live session
+      const toRun = batch.all_levels ? allLevels : allLevels.filter(l => l.path === batch.level);
+      if (toRun.length) buildTerminals(buildPanels(toRun, batch.providers));
+      document.getElementById('run-label').textContent = 'running…';
+      document.getElementById('run-label').style.color = 'var(--y2)';
     }
+  } catch (e) {
+    // ignore
   }
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
 let _obProviders = [];      // detected/tested provider candidates
 let _obSelected = [];       // selected provider objects
-
-function esc(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+let _pmOnboarding = null;
 
 async function initOnboarding() {
   try {
@@ -1707,6 +1863,10 @@ async function initOnboarding() {
     }
   } catch (e) {
     openOnboarding();
+  }
+  if (!_pmOnboarding) {
+    _pmOnboarding = new ProviderManager('pm-onboarding', { showSave: false });
+    await _pmOnboarding.load();
   }
 }
 
@@ -1895,6 +2055,27 @@ function obRemoveSelected(i) {
   _obSelected.splice(i, 1);
   renderObProviders();
   renderObSelected();
+}
+
+function obAddSavedProvider() {
+  const p = _pmOnboarding ? _pmOnboarding.getSelected() : null;
+  if (!p || !p.base_url || !p.model) {
+    obSetStatus('Select a saved provider first', 'error');
+    return;
+  }
+  _obSelected = _obSelected.filter(s => s.base_url !== p.base_url);
+  if (_obSelected.length >= 2) _obSelected.shift();
+  _obSelected.push({
+    id: p.id || `saved-${Date.now()}`,
+    label: p.label || p.model,
+    base_url: p.base_url,
+    model: p.model,
+    api_key: p.api_key || '',
+    source: p.source || 'saved',
+    enabled: true,
+  });
+  renderObSelected();
+  obSetStatus('Provider added to selection', 'ok');
 }
 
 async function obTestManual() {
@@ -2167,42 +2348,138 @@ function updateBatchSummary() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-  // Show static presets immediately so the bar is never empty
-  renderPresetBar(1, []);
+  await initProviderManagers();
+  await loadSettings();
   await initOnboarding();
-  await loadCreds();
+  if (_settings.auto_detect_providers) {
+    detectProviders();
+  }
   await loadLevels();
   await loadRecentRuns('', true);
   await runPreflight();
-  // Auto-detect in background — fills in detected chips without blocking UI
-  detectProviders(1);
+  await restoreActiveSession();
 }
 
 async function loadCreds() {
+  // ProviderManager already loads saved providers; this helper just refreshes UI labels.
   try {
-    // Prefer new persistent providers endpoint, fall back to legacy creds
-    let providers = [];
-    try {
-      const stored = await fetch('/api/providers').then(r => r.json());
-      if (Array.isArray(stored) && stored.length) providers = stored;
-    } catch (e) {}
-
-    if (!providers.length) {
-      const c = await fetch('/api/credentials').then(r => r.json());
-      providers = Array.isArray(c.providers) && c.providers.length
-        ? c.providers
-        : [{ base_url: c.base_url || '', model: c.model || '', api_key: c.api_key || '' }];
-    }
-
-    setProviderFields(1, providers[0] || {});
-    const hasSecond = !!providers[1];
-    document.getElementById('f-parallel').checked = hasSecond;
-    toggleSecondaryProvider(hasSecond);
-    setProviderFields(2, providers[1] || {});
-
-    const modelLbl = providers[0]?.model || 'not configured';
+    const first = getProviderConfig(1);
+    const modelLbl = first.model || 'not configured';
     document.getElementById('chat-model-lbl').textContent = modelLbl;
-  } catch(e) {}
+  } catch (e) {}
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+let _settings = {};
+
+async function loadSettings() {
+  try {
+    const resp = await fetch('/api/settings');
+    _settings = await resp.json();
+  } catch (e) {
+    _settings = {};
+  }
+  applySettingsToUi(_settings);
+  applySettingsLive(_settings);
+}
+
+function applySettingsToUi(s) {
+  const setChk = (id, key) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!s[key];
+  };
+  const setVal = (id, key) => {
+    const el = document.getElementById(id);
+    if (el && s[key] !== undefined) el.value = s[key];
+  };
+  setChk('s-shot', 'capture_preview_screenshot');
+  setChk('s-save-result', 'save_result_bundle');
+  setChk('s-save-container', 'save_container_snapshot');
+  setChk('s-scanlines', 'crt_scanlines');
+  setChk('s-confirm-stop', 'confirm_stop_run');
+  setChk('s-auto-detect', 'auto_detect_providers');
+  setChk('s-tool-previews', 'show_tool_previews');
+  setVal('s-refresh', 'auto_refresh_interval_s');
+  setVal('s-lang', 'assistant_language');
+  setVal('s-harness', 'default_harness');
+
+  // Also apply run defaults to the launch form
+  const launchDefaults = {
+    'f-shot': 'capture_preview_screenshot',
+    'f-save-result': 'save_result_bundle',
+    'f-save-container': 'save_container_snapshot',
+  };
+  for (const [id, key] of Object.entries(launchDefaults)) {
+    const el = document.getElementById(id);
+    if (el && s[key] !== undefined) el.checked = !!s[key];
+  }
+}
+
+function applySettingsLive(s) {
+  document.body.classList.toggle('no-scanlines', !s.crt_scanlines);
+  restartPreflightInterval();
+}
+
+function readSettingsFromUi() {
+  return {
+    default_harness: document.getElementById('s-harness')?.value || '',
+    capture_preview_screenshot: !!document.getElementById('s-shot')?.checked,
+    save_result_bundle: !!document.getElementById('s-save-result')?.checked,
+    save_container_snapshot: !!document.getElementById('s-save-container')?.checked,
+    auto_detect_providers: !!document.getElementById('s-auto-detect')?.checked,
+    crt_scanlines: !!document.getElementById('s-scanlines')?.checked,
+    assistant_language: document.getElementById('s-lang')?.value || 'en',
+    confirm_stop_run: !!document.getElementById('s-confirm-stop')?.checked,
+    auto_refresh_interval_s: parseInt(document.getElementById('s-refresh')?.value || '5', 10) || 5,
+    show_tool_previews: !!document.getElementById('s-tool-previews')?.checked,
+  };
+}
+
+async function populateHarnessSelect() {
+  const sel = document.getElementById('s-harness');
+  if (!sel) return;
+  try {
+    const resp = await fetch('/api/harnesses');
+    const harnesses = await resp.json();
+    sel.innerHTML = '<option value="">— system default —</option>' +
+      harnesses.map(h => `<option value="${esc(h.path)}">${esc(h.label)}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">— unavailable —</option>';
+  }
+}
+
+function openSettings() {
+  document.getElementById('settings-backdrop').classList.add('open');
+  populateHarnessSelect().then(() => applySettingsToUi(_settings));
+}
+
+function closeSettings() {
+  document.getElementById('settings-backdrop').classList.remove('open');
+}
+
+async function saveSettings() {
+  const status = document.getElementById('settings-status');
+  if (status) status.textContent = 'saving…';
+  try {
+    const updates = readSettingsFromUi();
+    const resp = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      _settings = data.settings || updates;
+      applySettingsToUi(_settings);
+      applySettingsLive(_settings);
+      restartPreflightInterval();
+      if (status) { status.textContent = 'saved ✔'; status.style.color = 'var(--green)'; }
+    } else {
+      throw new Error(data.error || 'save failed');
+    }
+  } catch (e) {
+    if (status) { status.textContent = 'save failed'; status.style.color = 'var(--red)'; }
+  }
 }
 
 // ── Preflight ─────────────────────────────────────────────────────────────────
@@ -2281,7 +2558,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Light background re-check every 30s
-setInterval(runPreflight, 30_000);
+let _preflightInterval = setInterval(runPreflight, 30_000);
+
+function restartPreflightInterval() {
+  if (_preflightInterval) clearInterval(_preflightInterval);
+  const secs = (_settings.auto_refresh_interval_s && _settings.auto_refresh_interval_s >= 1)
+    ? _settings.auto_refresh_interval_s
+    : 30;
+  _preflightInterval = setInterval(runPreflight, secs * 1000);
+}
 
 async function loadLevels() {
   allLevels = await fetch('/api/levels').then(r => r.json());
@@ -2408,11 +2693,47 @@ function renderReplayDetail(payload) {
         ${Number(run.duration_s || 0).toFixed(1)}s · ${run.turns || 0} turns · ${run.tool_calls_n || 0} tools${run.timed_out ? ' · timeout' : ''}<br>
         ${payload.log_found ? 'agentlog loaded' : 'agentlog missing'} · ${summary.event_count || 0} events · ${artifacts.length} artifacts
       </div>
+      ${renderBundleButton(artifacts)}
     </div>
     ${renderReplayArtifacts(artifacts)}
+    ${renderAnomalyPanel(artifacts) ? `<div class="replay-anomaly-wrap">${renderAnomalyPanel(artifacts)}</div>` : ''}
     ${renderReplayFilters()}
     <div class="replay-timeline">
       ${filtered.length ? filtered.map(renderReplayStep).join('') : '<div class="replay-empty">No events match this filter.</div>'}
+    </div>
+  `;
+}
+
+function renderReplayStep(step) {
+  if (!step || !step.type) return '';
+  const type = step.type;
+  let body = '';
+  if (type === 'session_start') {
+    const meta = step.meta || {};
+    body = `${esc(meta.model || '—')} · ${esc(meta.level_id || '—')}`;
+  } else if (type === 'session_end') {
+    body = `${step.timed_out ? 'timeout · ' : ''}${Number(step.score_total || 0).toFixed(1)} / 100`;
+  } else if (type === 'preview_ready') {
+    const meta = step.meta || {};
+    body = `localhost:${esc(meta.host_preview_port || '?')}${esc(meta.path || '/')}`;
+  } else if (type === 'tool_call') {
+    body = esc(JSON.stringify(step.args || {}, null, 2));
+  } else if (type === 'tool_result') {
+    body = `${step.ok ? 'exit 0' : 'exit ' + esc(step.exit_code)}\n${esc(step.output_preview || '')}`;
+  } else if (type === 'artifact') {
+    body = `${esc(step.kind || 'artifact')} · ${esc(step.detail || step.path || '')}`;
+  } else {
+    body = esc(step.text_preview || '');
+  }
+  const label = step.label || type;
+  const group = replayGroup(type);
+  return `
+    <div class="replay-step ${group}">
+      <div class="replay-step-head">
+        <span class="replay-step-type">${esc(label)}</span>
+        <span class="replay-step-time">${esc(Number(step.ts || 0).toFixed(1))}s</span>
+      </div>
+      <div class="replay-step-body">${body}</div>
     </div>
   `;
 }
@@ -2530,6 +2851,9 @@ async function startRun() {
 }
 
 async function stopRun() {
+  if (_settings.confirm_stop_run && !confirm('Stop the active benchmark run?')) {
+    return;
+  }
   await fetch('/api/stop', { method: 'POST' });
   setStatus('idle');
 }
@@ -3452,102 +3776,9 @@ function connect() {
 // ── BenchBot-AI Chat ──────────────────────────────────────────────────────────
 let chatBusy    = false;
 let chatHistory = [];   // [{role, content}]
-let _chatProviders = []; // saved providers loaded from backend
-let _chatProvider = { base_url: '', model: '', api_key: '', label: '' };
 
 async function initChat() {
-  await loadChatProviders();
-}
-
-async function loadChatProviders() {
-  try {
-    const stored = await fetch('/api/providers').then(r => r.json());
-    _chatProviders = Array.isArray(stored) ? stored : [];
-    if (!_chatProviders.length) {
-      const c = await fetch('/api/credentials').then(r => r.json());
-      if (c.providers?.[0]) _chatProviders = c.providers;
-      else if (c.base_url && c.model) {
-        _chatProviders = [{
-          base_url: c.base_url,
-          model: c.model,
-          api_key: c.api_key || '',
-          label: c.model,
-          source: 'legacy:creds',
-          enabled: true,
-        }];
-      }
-    }
-    renderChatProviderBar();
-    if (!_chatProvider.base_url && _chatProviders[0]) {
-      setChatProvider(_chatProviders[0]);
-    }
-  } catch (e) {
-    _chatProviders = [];
-  }
-}
-
-function renderChatProviderBar() {
-  const sel = document.getElementById('chat-provider-select');
-  if (!sel) return;
-  if (!_chatProviders.length) {
-    sel.innerHTML = '<option value="__manual__">— manual —</option>';
-    return;
-  }
-  const selectedKey = _chatProvider.base_url + '|' + _chatProvider.model;
-  sel.innerHTML = _chatProviders.map(p => {
-    const key = p.base_url + '|' + p.model;
-    const host = p.base_url.replace(/^https?:\/\//, '');
-    const label = esc(p.label || p.model || 'provider');
-    return `<option value="${esc(key)}" ${key === selectedKey ? 'selected' : ''}>${label} @ ${esc(host)}</option>`;
-  }).join('') + '<option value="__manual__">— manual —</option>';
-}
-
-function setChatProvider(provider) {
-  _chatProvider = {
-    base_url: provider.base_url || '',
-    model: provider.model || '',
-    api_key: provider.api_key || '',
-    label: provider.label || provider.model || ''
-  };
-  const lbl = document.getElementById('chat-model-lbl');
-  if (lbl) lbl.textContent = _chatProvider.label || _chatProvider.model || 'not configured';
-  const urlIn = document.getElementById('chat-provider-url');
-  const modelIn = document.getElementById('chat-provider-model');
-  const keyIn = document.getElementById('chat-provider-key');
-  if (urlIn) urlIn.value = _chatProvider.base_url;
-  if (modelIn) modelIn.value = _chatProvider.model;
-  if (keyIn) keyIn.value = _chatProvider.api_key;
-  renderChatProviderBar();
-}
-
-function onChatProviderSelect(value) {
-  if (value === '__manual__') {
-    document.getElementById('chat-provider-panel').classList.add('open');
-    return;
-  }
-  document.getElementById('chat-provider-panel').classList.remove('open');
-  const [base_url, ...rest] = value.split('|');
-  const model = rest.join('|');
-  const p = _chatProviders.find(x => x.base_url === base_url && x.model === model);
-  if (p) setChatProvider(p);
-}
-
-function toggleChatProviderPanel() {
-  document.getElementById('chat-provider-panel').classList.toggle('open');
-}
-
-function applyChatProvider() {
-  const base_url = document.getElementById('chat-provider-url').value.trim();
-  const model = document.getElementById('chat-provider-model').value.trim();
-  const api_key = document.getElementById('chat-provider-key').value.trim();
-  const status = document.getElementById('chat-provider-status');
-  if (!base_url || !model) {
-    if (status) status.textContent = 'URL and model required';
-    return;
-  }
-  setChatProvider({base_url, model, api_key, label: model, source: 'manual', enabled: true});
-  document.getElementById('chat-provider-panel').classList.remove('open');
-  if (status) status.textContent = '';
+  // ProviderManager for chat is initialized in initProviderManagers
 }
 
 function buildChatUiState() {
@@ -3557,10 +3788,11 @@ function buildChatUiState() {
     const provider2 = getProviderConfig(2);
     if (provider2.base_url || provider2.model || provider2.api_key) providers.push(provider2);
   }
+  const chatProvider = _pmChat ? _pmChat.getSelected() : {};
   return {
-    base_url: _chatProvider.base_url || providers[0]?.base_url || '',
-    model: _chatProvider.model || providers[0]?.model || '',
-    api_key: _chatProvider.api_key || providers[0]?.api_key || '',
+    base_url: chatProvider.base_url || providers[0]?.base_url || '',
+    model: chatProvider.model || providers[0]?.model || '',
+    api_key: chatProvider.api_key || providers[0]?.api_key || '',
     providers,
     parallel_compare: parallel,
     level: document.getElementById('f-level')?.value || '',
@@ -3580,7 +3812,8 @@ function applyChatUiPatch(patch) {
     toggleSecondaryProvider(hasSecond);
     setProviderFields(1, patch.providers[0] || { base_url: '', model: '', api_key: '' });
     setProviderFields(2, patch.providers[1] || { base_url: '', model: '', api_key: '' });
-    if (!_chatProvider.model) {
+    const chatProvider = _pmChat ? _pmChat.getSelected() : {};
+    if (!chatProvider.model) {
       const modelLbl = patch.providers[0]?.model || 'not configured';
       document.getElementById('chat-model-lbl').textContent = modelLbl;
     }

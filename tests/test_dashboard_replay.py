@@ -177,13 +177,38 @@ def test_build_artifact_records_indexes_saved_files(tmp_path: Path) -> None:
     (artifact_dir / "preview.png").write_bytes(b"png-bytes")
     (artifact_dir / "abc12345-result-bundle.zip").write_bytes(b"zip-bytes")
     (artifact_dir / "container-snapshot.json").write_text("{}", encoding="utf-8")
+    (artifact_dir / "anomalies.json").write_text(
+        '{"summary": {"count": 2, "severity": "medium"}, "items": [{"kind": "timeout", "severity": "high"}], "llm_summary": "rough run"}',
+        encoding="utf-8",
+    )
 
     records = build_artifact_records(tmp_path, "abc12345")
 
-    assert [record["kind"] for record in records] == [
+    kinds = [record["kind"] for record in records]
+    assert kinds == [
         "result_bundle",
+        "anomalies",
         "container_snapshot",
         "preview_screenshot",
     ]
     assert records[-1]["is_image"] is True
     assert records[-1]["url"] == "/api/artifacts/abc12345/preview.png"
+
+    # The anomalies record should carry the parsed report inline.
+    anomaly = records[kinds.index("anomalies")]
+    assert anomaly["anomaly_summary"] == {"count": 2, "severity": "medium"}
+    assert len(anomaly["anomaly_items"]) == 1
+    assert anomaly["anomaly_llm_summary"] == "rough run"
+
+
+def test_anomaly_record_handles_corrupt_json(tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "artifacts" / "deadbeef"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "anomalies.json").write_text("{not valid json", encoding="utf-8")
+
+    records = build_artifact_records(tmp_path, "deadbeef")
+
+    assert len(records) == 1
+    assert records[0]["kind"] == "anomalies"
+    # No inline summary keys when the file fails to parse.
+    assert "anomaly_summary" not in records[0]

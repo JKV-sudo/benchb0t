@@ -5,6 +5,7 @@
 <title>benchb0t · BENCHB0T-DEX</title>
 <!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/shared-pm.css">
 <style>
 /* ── App theme (matches dashboard + builder) ── */
 :root {
@@ -421,15 +422,10 @@ tr.timed-out .run-id::after { content: ' ⏱'; color: var(--red); }
 <body>
 
 <header>
-  <div class="led-row">
-    <div class="led led-y"></div>
-    <div class="led led-g"></div>
-    <div class="led led-o"></div>
-  </div>
+  <img src="/static/benchb0t-logo.png" alt="benchb0t" style="height:54px;width:auto;filter:drop-shadow(0 0 8px rgba(255,215,0,.3))">
   <span class="sep">│</span>
   <div>
-    <div class="logo">benchb0t</div>
-    <div class="logo-sub">BENCHB0T&#x2011;DEX · ANALYTICS</div>
+    <div class="logo-sub">BENCHB0T‑DEX · ANALYTICS</div>
   </div>
   <div class="hdr-r">
     <a class="nav-lnk" href="/builder">BUILDER</a>
@@ -644,6 +640,7 @@ tr.timed-out .run-id::after { content: ' ⏱'; color: var(--red); }
   </div>
 </div>
 
+<script src="/static/shared-utils.js"></script>
 <script>
 let allModels = [];
 let allLevels = [];
@@ -1140,31 +1137,45 @@ function setBar(id, pct) {
 load();
 
 // ── Floating BenchBot-AI Chat ─────────────────────────────────────────────────
-let cfOpen    = false;
-let cfBusy    = false;
+let cfOpen = false;
+let cfBusy = false;
 let cfHistory = [];
+let _pmCF = null;
 
 function toggleCF() {
   cfOpen = !cfOpen;
   document.getElementById('cf-panel').classList.toggle('open', cfOpen);
   document.getElementById('cf-fab').classList.toggle('active', cfOpen);
   if (cfOpen) {
-    loadCFModel();
     document.getElementById('cf-input').focus();
+    initCFProvider();
   }
 }
 
-function loadCFModel() {
-  fetch('/api/credentials').then(r => r.json()).then(d => {
-    const m = d.model || d.providers?.[0]?.model || 'not configured';
-    document.getElementById('cf-model-lbl').textContent = m;
-  }).catch(() => {});
+async function initCFProvider() {
+  if (!_pmCF) {
+    _pmCF = new ProviderManager('pm-cf', {
+      showSave: true,
+      onChange: (p) => {
+        const lbl = document.getElementById('cf-model-lbl');
+        if (lbl) lbl.textContent = p.label || p.model || 'not configured';
+      },
+    });
+    await _pmCF.load();
+    if (!_pmCF.getSelected().base_url && _pmCF.providers[0]) {
+      _pmCF.setSelected(_pmCF.providers[0]);
+    }
+  }
+}
+
+function getCFProvider() {
+  return _pmCF ? _pmCF.getSelected() : { base_url: '', model: '', api_key: '', label: '' };
 }
 
 async function sendCF() {
   if (cfBusy) return;
   const input = document.getElementById('cf-input');
-  const text  = input.value.trim();
+  const text = input.value.trim();
   if (!text) return;
   input.value = '';
   cfHistory.push({ role: 'user', content: text });
@@ -1172,7 +1183,7 @@ async function sendCF() {
 
   cfBusy = true;
   document.getElementById('cf-send-btn').disabled = true;
-  const aEl    = appendCF('assistant', '');
+  const aEl = appendCF('assistant', '');
   const bodyEl = aEl.querySelector('.cf-body');
   const cursor = document.createElement('span');
   cursor.className = 'cf-cursor';
@@ -1180,10 +1191,17 @@ async function sendCF() {
 
   let full = '';
   try {
+    const p = getCFProvider();
     const res = await fetch('/api/chat', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ messages: cfHistory, page: 'analytics' }),
+      body: JSON.stringify({
+        messages: cfHistory,
+        page: 'analytics',
+        base_url: p.base_url,
+        model: p.model,
+        api_key: p.api_key,
+      }),
     });
     const reader  = res.body.getReader();
     const decoder = new TextDecoder();
@@ -1245,6 +1263,7 @@ function appendCF(role, text) {
     <span class="cf-model" id="cf-model-lbl">—</span>
     <button class="cf-close" onclick="toggleCF()">✕</button>
   </div>
+  <div id="pm-cf"></div>
   <div class="cf-ctx">◆ model rankings · level stats · trends · comparisons</div>
   <div class="cf-msgs" id="cf-msgs">
     <div class="cf-msg assistant">

@@ -7,6 +7,36 @@
 
 ![Long run](pic1.png)
 
+## Dashboard
+
+benchb0t ships with a live web dashboard (`benchbot dash` or `python3 -m framework.dashboard`).
+Open `http://localhost:7860` to:
+
+- Pick levels, configure one or two providers, and start benchmark runs.
+- Watch runs live via WebSocket-streamed agent logs.
+- Replay past runs and compare models side-by-side.
+- Create and edit levels with the built-in AI-assisted **Builder**.
+- Inspect analytics across all stored runs.
+
+### Settings
+
+Click **⚙ SETTINGS** in the top bar to open the settings panel. Preferences are persisted in the SQLite database (`benchb0t.db`) and restored on the next launch.
+
+| Setting | Description |
+|---------|-------------|
+| **Capture preview screenshot** | Default value for the run form. |
+| **Save result bundle (.zip)** | Default value for the run form. |
+| **Save container snapshot** | Default value for the run form. |
+| **Default harness** | Which harness YAML to use when starting runs from the dashboard. |
+| **Auto-detect providers on startup** | Runs provider detection automatically when the dashboard loads. |
+| **CRT scanlines** | Toggle the retro CRT overlay. |
+| **Confirm before stopping a run** | Shows a confirmation dialog on the Stop button. |
+| **Auto-refresh interval** | How often the dashboard re-runs preflight checks. |
+| **Assistant language** | Language hint for BenchBot-AI (`en`, `de`, or `auto`). |
+| **Show tool previews** | Inline tool result previews in the AI chat panel. |
+
+---
+
 ## Concept
 
 benchb0t treats each benchmark task as a **level** in a game.

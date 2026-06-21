@@ -62,6 +62,7 @@ from framework.dashboard_models import (
     RunRequest,
     SaveLevelRequest,
     SaveProvidersRequest,
+    SettingsRequest,
     TestProviderRequest,
 )
 from framework.dashboard_replay import (
@@ -124,9 +125,12 @@ async def _start_run_impl(req: RunRequest) -> tuple[dict[str, Any], int]:
             return {"error": "no provider configured"}, 400
 
         # Back-fill any missing fields from stored providers if they match base_url/model
-        stored = {p["base_url"]: p for p in state.load_providers()}
+        stored = {
+            f"{normalize_url(p.get('base_url', ''))}|{p.get('model', '')}": p
+            for p in state.load_providers()
+        }
         for provider in providers:
-            key = provider["base_url"]
+            key = f"{normalize_url(provider['base_url'])}|{provider['model']}"
             if key in stored and not provider.get("api_key"):
                 provider["api_key"] = stored[key].get("api_key", "")
 
@@ -136,7 +140,23 @@ async def _start_run_impl(req: RunRequest) -> tuple[dict[str, Any], int]:
         if not harnesses:
             return {"error": "no harness files found"}, 500
 
+        default_harness = state.get_setting("default_harness") or ""
+        if default_harness:
+            chosen = Path(default_harness)
+            if not chosen.is_absolute():
+                chosen = state.project_dir / chosen
+            if chosen.exists():
+                harnesses = [chosen] + [h for h in harnesses if h != chosen]
+
         state.reset_run_batch()
+        state.set_active_batch({
+            "level": req.level,
+            "all_levels": req.all_levels,
+            "providers": providers,
+            "capture_preview_screenshot": req.capture_preview_screenshot,
+            "save_result_bundle": req.save_result_bundle,
+            "save_container_snapshot": req.save_container_snapshot,
+        })
 
         for idx, provider in enumerate(providers, start=1):
             env = {
@@ -174,6 +194,8 @@ async def _start_run_impl(req: RunRequest) -> tuple[dict[str, Any], int]:
             state.active_procs.append(proc)
             asyncio.create_task(_drain_runner(proc, prefix=f"[P{idx} {provider['model']}] "))
 
+        asyncio.create_task(_watch_run_completion())
+
     return {
         "status": "started",
         "pids": [proc.pid for proc in state.active_procs],
@@ -186,6 +208,7 @@ async def _stop_run_impl() -> dict[str, Any]:
         for proc in state.alive_procs():
             proc.terminate()
         state.active_procs = []
+    state.clear_active_batch()
     return {"status": "stopped"}
 
 
@@ -588,6 +611,30 @@ def list_providers() -> JSONResponse:
     return JSONResponse(state.load_providers())
 
 
+@app.get("/api/settings")
+def get_settings() -> JSONResponse:
+    """Return current dashboard settings merged with defaults."""
+    return JSONResponse(state.load_settings())
+
+
+@app.post("/api/settings")
+async def update_settings(req: SettingsRequest) -> JSONResponse:
+    """Persist dashboard settings."""
+    updates = req.model_dump()
+    merged = state.save_settings(updates)
+    return JSONResponse({"status": "saved", "settings": merged})
+
+
+@app.get("/api/harnesses")
+def list_harnesses() -> JSONResponse:
+    """Return available harness files."""
+    harnesses = sorted((state.project_dir / "harnesses").glob("*.yaml"))
+    return JSONResponse([
+        {"path": str(h), "name": h.stem, "label": h.stem.upper()}
+        for h in harnesses
+    ])
+
+
 @app.get("/api/levels")
 def list_levels() -> JSONResponse:
     levels = []
@@ -645,13 +692,14 @@ async def save_credentials(req: RunRequest) -> JSONResponse:
 @app.get("/api/status")
 def get_status() -> JSONResponse:
     alive = state.alive_procs()
+    payload: dict[str, Any] = {"status": "idle", "active_batch": state.active_batch}
     if alive:
-        return JSONResponse({
+        payload.update({
             "status": "running",
             "count": len(alive),
             "pids": [proc.pid for proc in alive],
         })
-    return JSONResponse({"status": "idle"})
+    return JSONResponse(payload)
 
 
 @app.post("/api/run")
@@ -669,6 +717,18 @@ async def _drain_runner(proc: subprocess.Popen, prefix: str = "") -> None:
             break
         stripped = line.rstrip()
         state.record_runner_output(stripped, prefix=prefix)
+
+
+async def _watch_run_completion() -> None:
+    """Poll active procs and clear the active batch once all have exited."""
+    while True:
+        await asyncio.sleep(2)
+        alive = state.alive_procs()
+        if not alive and state.active_batch:
+            state.clear_active_batch()
+            break
+        if not alive:
+            break
 
 
 @app.get("/api/runner-log")
@@ -961,7 +1021,7 @@ async def chat_endpoint(req: ChatRequest) -> StreamingResponse:
         page_context=req.page_context or "",
     )
     if req.page in ("dashboard", "builder") and req.allow_control:
-        context_system += "\n\n" + assistant_control_prompt(req.page)
+        context_system += "\n\n" + assistant_control_prompt(req.page, language=state.get_setting("assistant_language") or "en")
     messages = [{"role": "system", "content": context_system}] + list(req.messages)
 
     async def _stream():

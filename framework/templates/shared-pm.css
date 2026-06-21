@@ -1,0 +1,140 @@
+/**
+ * framework/templates/shared-pm.css
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * Shared ProviderManager styles for benchb0t templates.
+ * Include this wherever a ProviderManager is used.
+ */
+
+.pm-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.pm-label {
+  font-size: 5px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pm-select,
+.pm-panel select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg) !important;
+  border: 2px solid var(--b2) !important;
+  color: var(--text) !important;
+  font-family: var(--font) !important;
+  font-size: 7px !important;
+  padding: 7px 8px !important;
+  padding-right: 22px !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%235a4a10'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 7px center !important;
+  cursor: pointer !important;
+}
+.pm-select:focus,
+.pm-panel select:focus {
+  border-color: var(--y1) !important;
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2) !important;
+}
+.pm-select option,
+.pm-panel select option {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  font-family: var(--font) !important;
+  font-size: 7px !important;
+}
+.pm-gear {
+  background: none;
+  border: 1px solid var(--b3);
+  color: var(--dim);
+  font-size: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+.pm-gear:hover {
+  border-color: var(--y1);
+  color: var(--y1);
+}
+.pm-panel {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--b2);
+  background: var(--panel2);
+  padding: 8px;
+  margin-top: 4px;
+}
+.pm-panel.open {
+  display: flex;
+}
+.pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pm-field label {
+  font-size: 5px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pm-field input,
+.pm-panel input[type="text"],
+.pm-panel input[type="password"] {
+  width: 100%;
+  background: var(--bg) !important;
+  border: 2px solid var(--b2) !important;
+  color: var(--text) !important;
+  font-family: var(--font) !important;
+  font-size: 7px !important;
+  padding: 7px 8px !important;
+  outline: none !important;
+}
+.pm-field input:focus,
+.pm-panel input[type="text"]:focus,
+.pm-panel input[type="password"]:focus {
+  border-color: var(--y1) !important;
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2) !important;
+}
+.pm-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.pm-use, .pm-save {
+  flex: 1;
+  border: 1px solid var(--b3);
+  background: var(--b1);
+  color: var(--text);
+  font-size: 5px;
+  letter-spacing: 1px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.pm-use:hover {
+  border-color: var(--y1);
+  color: var(--y1);
+}
+.pm-save {
+  border-color: var(--y2);
+  color: var(--y2);
+}
+.pm-save:hover {
+  background: var(--y2);
+  color: var(--bg);
+}
+.pm-status {
+  font-size: 5px;
+  color: var(--dim);
+  min-height: 10px;
+}

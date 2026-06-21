@@ -30,13 +30,19 @@ _TOOL_ALIASES = {
 _RECOMMENDED_LEVEL_ID_RE = re.compile(r"^l\d{1,3}-[a-z0-9-]+$")
 
 
-def assistant_control_prompt(page: str) -> str:
+def assistant_control_prompt(page: str, *, language: str = "en") -> str:
+    lang_note = ""
+    if language == "de":
+        lang_note = " Antworte auf Deutsch, wenn der Benutzer Deutsch spricht."
+    elif language == "auto":
+        lang_note = " Antworte in der Sprache, in der der Benutzer schreibt."
     base = (
         "You can directly operate benchb0t. "
         "When the user asks to configure providers, pick levels, toggle saved artifacts, "
         "run readiness checks, start runs, stop runs, or create benchmark levels, "
         "use the available tools instead of merely describing the steps. "
         "After using tools, briefly confirm what changed."
+        + lang_note
     )
     if page == "builder":
         return (

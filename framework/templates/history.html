@@ -6,6 +6,7 @@
 <title>benchb0t · history</title>
 <!-- Shared theme variables and utilities (consolidated for DRY) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/shared-artifacts.css">
 <style>
 :root {
   --bg:    #0a0800; --panel: #100d00; --panel2: #151000;
@@ -563,14 +564,9 @@ aside::-webkit-scrollbar-thumb,
 </head>
 <body>
 <header>
-  <div class="led-row">
-    <div class="led led-y"></div>
-    <div class="led led-g"></div>
-    <div class="led led-o"></div>
-  </div>
+  <img src="/static/benchb0t-logo.png" alt="benchb0t" style="height:54px;width:auto;filter:drop-shadow(0 0 8px rgba(255,215,0,.3))">
   <span class="sep">│</span>
   <div>
-    <div class="logo">benchb0t</div>
     <div class="logo-sub">RUN ARCHIVE · HISTORY</div>
   </div>
   <div class="hdr-r">
@@ -606,6 +602,7 @@ aside::-webkit-scrollbar-thumb,
   </div>
 </div>
 
+<script src="/static/shared-utils.js"></script>
 <script>
 const state = {
   runs: [],
@@ -736,11 +733,19 @@ function renderRunList() {
           <span class="badge ${counts.screenshots ? 'good' : ''}">${counts.screenshots || 0} shots</span>
           <span class="badge ${counts.bundles ? 'good' : ''}">${counts.bundles || 0} zips</span>
           <span class="badge ${counts.snapshots ? 'snap' : ''}">${counts.snapshots || 0} snaps</span>
+          ${counts.anomalies ? anomalyBadge(run.anomaly_artifact) : ''}
           <span class="badge ${run.timed_out ? 'warn' : ''}">${run.tool_calls_n || 0} tools</span>
         </div>
       </div>
     `;
   }).join('');
+}
+
+function anomalyBadge(artifact) {
+  if (!artifact) return '';
+  const sev = (artifact.anomaly_summary || {}).severity || 'none';
+  const n = (artifact.anomaly_summary || {}).count;
+  return `<span class="badge ${severityClass(sev)}" title="anomaly severity">${esc(sev.toUpperCase())}${n ? ' · ' + n : ''}</span>`;
 }
 
 function renderArtifacts(artifacts) {
@@ -934,6 +939,7 @@ function renderDetail(run, payload) {
         ${run.log_url ? `<a class="detail-link" href="${esc(run.log_url)}" download="${esc(run.log_name || '')}">Download Log</a>` : ''}
         <a class="detail-link" href="${esc(run.replay_url || `/api/replays/${run.id}`)}" target="_blank" rel="noopener">Replay JSON</a>
       </div>
+      ${renderBundleButton(artifacts)}
     </div>
 
     <div class="detail-card">
@@ -956,6 +962,13 @@ function renderDetail(run, payload) {
       <div class="section-title">Artifacts</div>
       ${renderArtifacts(artifacts)}
     </div>
+
+    ${renderAnomalyPanel(artifacts) ? `
+      <div class="detail-card">
+        <div class="section-title">Anomalies</div>
+        ${renderAnomalyPanel(artifacts)}
+      </div>
+    ` : ''}
 
     <div class="detail-card">
       <div class="section-title">Timeline</div>

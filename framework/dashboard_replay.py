@@ -67,9 +67,22 @@ def artifact_kind_for_path(path: Path) -> str:
         return "result_bundle"
     if name == "container-snapshot.json":
         return "container_snapshot"
+    if name == "anomalies.json":
+        return "anomalies"
     if name.endswith(".json"):
         return "json"
     return "file"
+
+
+def _load_anomalies_payload(path: Path) -> dict[str, Any] | None:
+    """Best-effort parse of an anomalies.json file for inline UI display."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    except (OSError, ValueError):
+        return None
+    return None
 
 
 def build_artifact_records(runs_dir: Path, run_id: str) -> list[dict[str, Any]]:
@@ -82,17 +95,24 @@ def build_artifact_records(runs_dir: Path, run_id: str) -> list[dict[str, Any]]:
         if not path.is_file():
             continue
         kind = artifact_kind_for_path(path)
-        records.append(
-            {
-                "name": path.name,
-                "kind": kind,
-                "label": path.stem.replace("-", " "),
-                "path": str(path),
-                "size_bytes": path.stat().st_size,
-                "is_image": kind in {"preview_screenshot", "image"},
-                "url": f"/api/artifacts/{run_id}/{path.name}",
-            }
-        )
+        record: dict[str, Any] = {
+            "name": path.name,
+            "kind": kind,
+            "label": path.stem.replace("-", " "),
+            "path": str(path),
+            "size_bytes": path.stat().st_size,
+            "is_image": kind in {"preview_screenshot", "image"},
+            "url": f"/api/artifacts/{run_id}/{path.name}",
+        }
+        # Inline the parsed anomaly report so the UI can render severity + items
+        # without an extra round-trip fetch.
+        if kind == "anomalies":
+            payload = _load_anomalies_payload(path)
+            if payload:
+                record["anomaly_summary"] = payload.get("summary", {})
+                record["anomaly_items"] = payload.get("items", [])
+                record["anomaly_llm_summary"] = payload.get("llm_summary")
+        records.append(record)
     return records
 
 

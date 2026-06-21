@@ -35,3 +35,9 @@ agent:
 recorder:
   format: agentlog      # only supported format for now
   compress: false       # gzip .agentlog files when true
+
+artifacts:
+  auto_screenshot: true   # capture a preview screenshot automatically (preview levels only)
+  auto_bundle: true       # write a per-run ZIP bundle (result.json + agentlog + screenshot + anomalies)
+  anomalies: true         # generate an anomalies.json report for every run
+  llm_judge: true         # add a narrative LLM summary to the anomalies report (best-effort)

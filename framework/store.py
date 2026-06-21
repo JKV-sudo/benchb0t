@@ -79,6 +79,12 @@ CREATE TABLE IF NOT EXISTS providers (
     meta      TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_providers_enabled ON providers(enabled);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '{}',
+    ts    REAL NOT NULL DEFAULT 0
+);
 """
 
 # Forward-only column migrations.  Add new entries here when the schema grows.
@@ -293,6 +299,47 @@ class Store:
             return False
         rows = self._query("SELECT COUNT(*) AS n FROM providers WHERE enabled = 1")
         return bool(rows and rows[0].get("n", 0))
+
+    # ── Settings ─────────────────────────────────────────────────────────────
+
+    def save_settings(self, settings: dict[str, Any]) -> None:
+        """Merge settings into the settings table."""
+        if not self._conn:
+            return
+        now = time.time()
+        with self._lock:
+            for key, value in settings.items():
+                self._conn.execute(
+                    "INSERT INTO settings (key, value, ts) VALUES (?, ?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value, ts=excluded.ts",
+                    (key, json.dumps(value), now),
+                )
+            self._conn.commit()
+
+    def get_settings(self) -> dict[str, Any]:
+        """Return all stored settings as a flat dict."""
+        if not self._conn:
+            return {}
+        rows = self._query("SELECT key, value FROM settings")
+        result: dict[str, Any] = {}
+        for row in rows:
+            try:
+                result[row["key"]] = json.loads(row["value"])
+            except json.JSONDecodeError:
+                result[row["key"]] = row["value"]
+        return result
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """Return a single setting value."""
+        if not self._conn:
+            return default
+        rows = self._query("SELECT value FROM settings WHERE key = ?", (key,))
+        if not rows:
+            return default
+        try:
+            return json.loads(rows[0]["value"])
+        except json.JSONDecodeError:
+            return rows[0]["value"]
 
     def _query(self, sql: str, params: tuple = ()) -> list[dict]:
         if not self._conn:

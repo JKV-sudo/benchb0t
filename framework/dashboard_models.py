@@ -75,3 +75,18 @@ class SaveProvidersRequest(BaseModel):
     """Request to replace the stored provider list."""
 
     providers: list[ProviderRequest] = []
+
+
+class SettingsRequest(BaseModel):
+    """Request to update dashboard settings."""
+
+    default_harness: str = ""
+    capture_preview_screenshot: bool = True
+    save_result_bundle: bool = False
+    save_container_snapshot: bool = False
+    auto_detect_providers: bool = False
+    crt_scanlines: bool = True
+    assistant_language: str = "en"
+    confirm_stop_run: bool = True
+    auto_refresh_interval_s: int = 5
+    show_tool_previews: bool = True

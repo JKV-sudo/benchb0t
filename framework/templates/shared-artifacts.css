@@ -1,0 +1,141 @@
+/* framework/templates/static/shared-artifacts.css
+ * Styles for the anomaly panel, severity badges, and the prominent
+ * bundle download button. Shared across history + dashboard.
+ * Uses each page's CSS variables (--bg, --panel, --text, --green, --red,
+ * --cyan, --dim, --ydk) so it adapts to the retro CRT theme. */
+
+/* ── Bundle download call-to-action ─────────────────────────────────────── */
+.bundle-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  margin-top: .7rem;
+  padding: .5rem .9rem;
+  border: 1px solid var(--gold, #ffd700);
+  border-radius: 6px;
+  background: rgba(255, 215, 0, .08);
+  color: var(--gold, #ffd700);
+  text-decoration: none;
+  font-size: .82rem;
+  letter-spacing: .05em;
+  transition: background .15s, transform .1s;
+}
+.bundle-cta:hover {
+  background: rgba(255, 215, 0, .18);
+  transform: translateY(-1px);
+}
+.bundle-cta-icon { font-size: 1rem; line-height: 1; }
+.bundle-cta-text { font-weight: 700; }
+.bundle-cta-size { color: var(--dim, #5a4a10); font-size: .72rem; }
+
+/* ── Anomaly panel ──────────────────────────────────────────────────────── */
+.anomaly-panel {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: .7rem .8rem;
+  background: var(--panel, #100d00);
+  font-size: .8rem;
+}
+.anomaly-panel.sev-high   { border-color: rgba(255, 58, 58, .55);  background: rgba(255, 58, 58, .06); }
+.anomaly-panel.sev-medium { border-color: rgba(255, 179, 0, .5);   background: rgba(255, 179, 0, .05); }
+.anomaly-panel.sev-low    { border-color: rgba(0, 229, 255, .4);   background: rgba(0, 229, 255, .04); }
+.anomaly-panel.sev-none   { border-color: rgba(90, 74, 16, .5); }
+
+.anomaly-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .5rem;
+  flex-wrap: wrap;
+}
+.anomaly-title { font-weight: 700; letter-spacing: .03em; }
+.anomaly-count { color: var(--dim, #5a4a10); font-size: .74rem; }
+.anomaly-raw {
+  margin-left: auto;
+  color: var(--dim, #5a4a10);
+  text-decoration: none;
+  font-size: .72rem;
+  border-bottom: 1px dotted var(--dim, #5a4a10);
+}
+.anomaly-raw:hover { color: var(--text, #ffe87a); }
+
+.anomaly-sev-badge {
+  display: inline-block;
+  padding: .12rem .5rem;
+  border-radius: 4px;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  border: 1px solid;
+}
+.anomaly-sev-badge.sev-high   { color: var(--red, #ff3a3a);  border-color: var(--red, #ff3a3a);  background: rgba(255, 58, 58, .12); }
+.anomaly-sev-badge.sev-medium { color: #ffb300;               border-color: #ffb300;               background: rgba(255, 179, 0, .1); }
+.anomaly-sev-badge.sev-low    { color: var(--cyan, #00e5ff); border-color: var(--cyan, #00e5ff); background: rgba(0, 229, 255, .1); }
+.anomaly-sev-badge.sev-none   { color: var(--dim, #5a4a10);  border-color: var(--dim, #5a4a10); }
+
+.anomaly-items { list-style: none; margin: 0; padding: 0; }
+.anomaly-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: .5rem;
+  padding: .28rem 0;
+  border-top: 1px solid rgba(90, 74, 16, .25);
+  align-items: baseline;
+}
+.anomaly-item-kind { color: var(--text, #ffe87a); font-weight: 600; font-size: .76rem; }
+.anomaly-item-sev {
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  padding: .05rem .35rem;
+  border-radius: 3px;
+}
+.anomaly-item.sev-high .anomaly-item-sev   { color: var(--red, #ff3a3a);  background: rgba(255, 58, 58, .12); }
+.anomaly-item.sev-medium .anomaly-item-sev { color: #ffb300;               background: rgba(255, 179, 0, .12); }
+.anomaly-item.sev-low .anomaly-item-sev    { color: var(--cyan, #00e5ff); background: rgba(0, 229, 255, .1); }
+.anomaly-item-detail { color: var(--dim, #c9b94a); font-size: .76rem; word-break: break-word; }
+.anomaly-item-more { color: var(--dim, #5a4a10); font-size: .72rem; padding: .2rem 0; }
+
+.anomaly-empty { color: var(--dim, #5a4a10); font-style: italic; padding: .2rem 0; }
+
+.anomaly-llm {
+  margin-top: .55rem;
+  padding-top: .5rem;
+  border-top: 1px solid rgba(90, 74, 16, .3);
+  color: var(--text, #ffe87a);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+/* ── Severity badges in run lists ───────────────────────────────────────── */
+.badge.sev-high   { color: var(--red, #ff3a3a);  border-color: rgba(255, 58, 58, .35); }
+.badge.sev-medium { color: #ffb300;               border-color: rgba(255, 179, 0, .35); }
+.badge.sev-low    { color: var(--cyan, #00e5ff); border-color: rgba(0, 229, 255, .35); }
+.badge.sev-none   { color: var(--green, #39ff14); border-color: rgba(57, 255, 20, .3); }
+
+/* ── Dashboard replay-specific wrappers ─────────────────────────────────── */
+.replay-anomaly-wrap { margin: .5rem 0; }
+.replay-step {
+  padding: .35rem .5rem;
+  border-left: 2px solid rgba(90, 74, 16, .4);
+  margin: .2rem 0;
+  background: rgba(255, 215, 0, .02);
+}
+.replay-step.tool_call,
+.replay-step.tool_result { border-left-color: rgba(0, 229, 255, .4); }
+.replay-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .72rem;
+}
+.replay-step-type { color: var(--text, #ffe87a); font-weight: 600; }
+.replay-step-time { color: var(--dim, #5a4a10); }
+.replay-step-body {
+  margin-top: .2rem;
+  font-size: .74rem;
+  color: var(--dim, #c9b94a);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, monospace;
+}

@@ -25,17 +25,20 @@ def test_summarize_artifacts_tracks_preview_bundle_and_snapshot() -> None:
         {"kind": "preview_screenshot", "name": "preview.png"},
         {"kind": "result_bundle", "name": "run.zip"},
         {"kind": "container_snapshot", "name": "container-snapshot.json"},
+        {"kind": "anomalies", "name": "anomalies.json", "anomaly_summary": {"severity": "medium"}},
         {"kind": "json", "name": "meta.json"},
     ])
 
     assert summary["counts"] == {
-        "total": 4,
+        "total": 5,
         "screenshots": 1,
         "bundles": 1,
         "snapshots": 1,
+        "anomalies": 1,
         "other": 1,
     }
     assert summary["preview_artifact"]["name"] == "preview.png"
+    assert summary["anomaly_artifact"]["name"] == "anomalies.json"
 
 
 def test_build_history_inventory_attaches_artifacts_and_log(tmp_path: Path) -> None:

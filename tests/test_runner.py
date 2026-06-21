@@ -267,6 +267,7 @@ def test_run_level_records_result_store_and_artifacts(
     monkeypatch.setattr(runner, "Scorer", FakeScorer)
     monkeypatch.setattr(runner, "capture_preview_screenshot_artifact", fake_capture_preview_screenshot)
     monkeypatch.setattr(runner, "save_container_snapshot_artifact", fake_save_container_snapshot)
+    monkeypatch.setattr(runner, "llm_anomaly_summary", lambda *a, **k: None)
     monkeypatch.setattr(runner, "_print_result", lambda result: None)
     monkeypatch.setattr(runner.time, "sleep", lambda seconds: sleep_calls.append(seconds))
 
@@ -298,6 +299,7 @@ def test_run_level_records_result_store_and_artifacts(
     assert artifact_kinds == [
         "preview_screenshot",
         "container_snapshot",
+        "anomalies",
         "result_bundle",
     ]
 
@@ -310,7 +312,7 @@ def test_run_level_records_result_store_and_artifacts(
     log_events = load_agentlog(result["log_path"])
     event_types = [event["type"] for event in log_events]
     assert "preview_ready" in event_types
-    assert event_types.count("artifact") == 2
+    assert event_types.count("artifact") == 3
     session_end = next(event for event in log_events if event["type"] == "session_end")
     assert session_end["preview_linger_seconds"] == 37
 
@@ -318,6 +320,7 @@ def test_run_level_records_result_store_and_artifacts(
     assert bundle_path.exists()
     with zipfile.ZipFile(bundle_path) as bundle:
         assert set(bundle.namelist()) == {
+            "anomalies.json",
             "container-snapshot.json",
             "preview.png",
             "result.json",
@@ -328,7 +331,11 @@ def test_run_level_records_result_store_and_artifacts(
         assert [artifact["kind"] for artifact in bundle_result["artifacts"]] == [
             "preview_screenshot",
             "container_snapshot",
+            "anomalies",
         ]
+        anomalies = json.loads(bundle.read("anomalies.json").decode("utf-8"))
+        assert "summary" in anomalies
+        assert "items" in anomalies
 
 
 def test_run_level_applies_retry_penalty_after_forced_retry(

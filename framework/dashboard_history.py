@@ -27,9 +27,11 @@ def summarize_artifacts(artifacts: list[dict[str, Any]]) -> dict[str, Any]:
         "screenshots": 0,
         "bundles": 0,
         "snapshots": 0,
+        "anomalies": 0,
         "other": 0,
     }
     preview_artifact: dict[str, Any] | None = None
+    anomaly_artifact: dict[str, Any] | None = None
 
     for artifact in artifacts:
         kind = artifact.get("kind", "")
@@ -40,12 +42,16 @@ def summarize_artifacts(artifacts: list[dict[str, Any]]) -> dict[str, Any]:
             counts["bundles"] += 1
         elif kind == "container_snapshot":
             counts["snapshots"] += 1
+        elif kind == "anomalies":
+            counts["anomalies"] += 1
+            anomaly_artifact = anomaly_artifact or artifact
         else:
             counts["other"] += 1
 
     return {
         "counts": counts,
         "preview_artifact": preview_artifact,
+        "anomaly_artifact": anomaly_artifact,
     }
 
 
@@ -61,6 +67,7 @@ def build_history_run_entry(run: dict[str, Any], runs_dir: Path) -> dict[str, An
         "artifacts": artifacts,
         "artifact_counts": artifact_summary["counts"],
         "preview_artifact": artifact_summary["preview_artifact"],
+        "anomaly_artifact": artifact_summary["anomaly_artifact"],
         "log_url": f"/api/logs/{run_id}" if log_path else "",
         "log_name": log_path.name if log_path else "",
         "replay_url": f"/api/replays/{run_id}",
